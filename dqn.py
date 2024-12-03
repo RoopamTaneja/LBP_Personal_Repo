@@ -6,7 +6,7 @@ from collections import deque
 import matplotlib.pyplot as plt
 
 
-# Q-Network definition
+# Neural network architecture class
 class QNetwork(tf.keras.Model):
     def __init__(self, input_size, output_size):
         super(QNetwork, self).__init__()
@@ -50,17 +50,25 @@ class DQNAgent:
         self.input_size = env.observation_space.shape[0]
         self.output_size = env.action_space.n
 
+        # Two instances of neural network - Q network and target network
         self.q_network = QNetwork(self.input_size, self.output_size)
         self.target_network = QNetwork(self.input_size, self.output_size)
+
+        # target network is identical to Q network initially
         self.target_network.set_weights(self.q_network.get_weights())
 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
         self.replay_buffer = ReplayBuffer(10000)
 
     def act(self, state):
-        if random.random() < self.epsilon:
+        if random.random() < self.epsilon:  # random action
             return self.env.action_space.sample()
-        state = np.expand_dims(state, axis=0)  # Add batch dimension
+
+        # else pass to neural network to get action values and
+        # choose optimal action
+        state = np.expand_dims(
+            state, axis=0
+        )  # Make 1D to 2D array (to pass as argument)
         q_values = self.q_network(state)
         return np.argmax(q_values)
 
@@ -69,14 +77,17 @@ class DQNAgent:
             return
 
         batch = self.replay_buffer.sample(batch_size)
+        # Unpack batch into 5 separate arrays
         states, actions, rewards, next_states, dones = zip(*batch)
 
+        # Convert them into numpy arrays
         states = np.array(states)
         actions = np.array(actions)
         rewards = np.array(rewards)
         next_states = np.array(next_states)
         dones = np.array(dones)
 
+        # The GradientTape is used to track the operations in the forward pass so that gradients can later be computed.
         with tf.GradientTape() as tape:
             q_values = self.q_network(states)
             q_values = tf.gather(q_values, actions, axis=1, batch_dims=1)
@@ -84,14 +95,18 @@ class DQNAgent:
             next_q_values = tf.reduce_max(self.target_network(next_states), axis=1)
             target_q_values = rewards + (self.gamma * next_q_values * (1 - dones))
 
+            # Mean Squared Error
             loss = tf.reduce_mean(tf.square(q_values - target_q_values))
 
+        # Compute gradients and update weights of Q network
         grads = tape.gradient(loss, self.q_network.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.q_network.trainable_variables))
 
+        # Decaying epsilon
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
 
+    # Copy Q network to target network periodically
     def update_target_network(self):
         self.target_network.set_weights(self.q_network.get_weights())
 

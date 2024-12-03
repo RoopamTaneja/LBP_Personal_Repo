@@ -1,3 +1,29 @@
+# https://colab.research.google.com/drive/1mCiVdE7P_jX5CSCnnI-QFyVarCZzpuWy?usp=sharing
+
+# Doubts :
+# 1. How much neural networks theory and code to know?
+# 2. Is replay in code wrong? Should replay be this? :
+"""
+    def replay(self, batch_size):
+        if len(self.memory) < batch_size:
+            return
+        minibatch = random.sample(self.memory, batch_size)
+        for state, action, reward, next_state, done in minibatch:
+            target = self.model.predict(state, verbose=0)
+            if done:
+                target[0][action] = reward
+            else:
+                # t = self.target_model.predict(next_state)
+                # target[0][action] = reward + gamma * np.amax(t[0])
+                next_action = np.argmax(self.model.predict(next_state, verbose=0), axis=1)
+                t = self.target_model.predict(next_state, verbose=0)
+                target[0][action] = reward + gamma * t[0][next_action].item()
+
+            self.model.fit(state, target, epochs=1, verbose=0)
+        if self.epsilon > epsilon_min:
+            self.epsilon *= epsilon_decay
+"""
+
 import numpy as np
 import random
 import tensorflow as tf

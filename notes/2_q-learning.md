@@ -60,8 +60,6 @@ Behaviour policy : epsilon-greedy (allows exploration)
 
 ![](img/image-14.png)
 
-Q(s,a) of end state = reward there and it does not get updated 
-
 We can explore and discover new paths for actions that we execute.
 However, when we update Q-value estimates to improve them, we always use the best Q-value, even though that action may not get executed.
 
