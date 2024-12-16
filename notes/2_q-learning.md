@@ -14,28 +14,6 @@ Part of model-free control : Optimise the value function and find best optimal p
 
 **Off-policy learning** : Target policy not equal to behaviour policy
 
-## Temporal Difference (TD) learning summary: 
-
-(Basically looking at TD(0) because that suffices here)
-
-TD_error = q_obs - q_exp
-
-q(s, a) = q(s, a) + alpha * (TD_error)
-
-**Learning rate (alpha)** : How much do you wish to update q values at each step (for deterministic, alpha = 1)
-
-v(s) = v(s) + alpha * (TD_error)
-
-![](img/image-9.png)
-
-These values are adjusted as you go across different time steps (hence temporal) through multiple episodes. Thus TD can learn after every step before episode is complete.
-
-TD is model-free.
-
-![](img/image-8.png) 
-
-vπ(St+1) <- true value of value fn, V(st+1) <- our current best guess of value fn
-
 ---
 
 ## Q learning
@@ -66,6 +44,3 @@ However, when we update Q-value estimates to improve them, we always use the bes
 ![](img/image-11.png)
 
 **Theorem** : Q-learning control converges to the optimal action-value function, Q(s, a) → q∗(s, a).
-
-**Aside** : SARSA is essentially the on-policy version of Q-learning.
-
