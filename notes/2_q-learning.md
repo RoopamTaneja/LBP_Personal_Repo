@@ -4,7 +4,7 @@ If needed : go through RL Markov Maths images (and if time silver_2.pdf)
 
 Most real world problems are model-free control
 
-Part of model-free control : Optimise the value function and best optimal policy of an unknown MDP or an MDP that is too complex to use.
+Part of model-free control : Optimise the value function and find best optimal policy of an unknown MDP or an MDP that is too complex to use.
 
 **Target policy** : Policy agent is trying to learn
 

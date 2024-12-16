@@ -37,7 +37,7 @@ A scalar reward is emphasised to make it easy to compare two values.
 
 ## Agent and Environment
 
-We build an agent that follows an algo fed in ints brain which will choose actions At based on observations Ot and reward signal Rt. Our goal is to find right algo.
+We build an agent that follows an algo fed in its brain which will choose actions At based on observations Ot and reward signal Rt. Our goal is to find right algo.
 
 Environment is what the agent interacts with. It generates observations, tells reward and is influenced by the actions. 
 
@@ -193,9 +193,9 @@ Examples :
 
 2. Game Playing
  
-    Exploitation Play the move you believe is best
+    Exploitation - Play the move you believe is best
     
-    Exploration Play an experimental move
+    Exploration - Play an experimental move
 
 ### Prediction and Control
 

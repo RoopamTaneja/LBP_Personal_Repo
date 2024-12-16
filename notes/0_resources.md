@@ -7,3 +7,19 @@
 3) CIS 522 - Deep Learning
 
 4) Sutton, Barto
+
+5) https://spinningup.openai.com/en/latest/
+
+Neural networks :
+
+6) Keras : https://keras.io/examples/
+
+7) https://victorzhou.com/series/neural-networks-from-scratch/
+
+8) http://neuralnetworksanddeeplearning.com/
+
+Ponder for optimization:
+
+9) https://keras.io/examples/rl/deep_q_network_breakout/ 
+
+10) Using CNNs/ different loss fn/ l2 regularization/ vectorization/ depth of network/ gradient clipping

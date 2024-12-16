@@ -1,8 +1,6 @@
 # https://colab.research.google.com/drive/1mCiVdE7P_jX5CSCnnI-QFyVarCZzpuWy?usp=sharing
 
-# Doubts :
-# 1. How much neural networks theory and code to know?
-# 2. Is replay in code wrong? Should replay be this? :
+# Should replay be this? :
 """
     def replay(self, batch_size):
         if len(self.memory) < batch_size:

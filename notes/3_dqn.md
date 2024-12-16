@@ -32,7 +32,7 @@ Take a random batch of your tuples from the buffer (random to break temporal cor
 
 Pass state from tuple to Q network and get q(s, a) for action mentioned in tuple.
 
-Pass next state to target netowrk and get max q(s,a) for all a.
+Pass next state to target network and get max q(s,a) for all a.
 
 Target value = immediate reward + gamma * (max q)
 

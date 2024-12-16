@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 import numpy as np
 import random
 import tensorflow as tf
@@ -115,13 +115,13 @@ class DQNAgent:
 def train_dqn(agent, episodes=1000, batch_size=64):
     episode_rewards = []
     for episode in range(episodes):
-        state = agent.env.reset()
+        state, _ = agent.env.reset()
         done = False
         total_reward = 0
 
         while not done:
             action = agent.act(state)
-            next_state, reward, done, _ = agent.env.step(action)
+            next_state, reward, done, _, _ = agent.env.step(action)
             agent.replay_buffer.push(state, action, reward, next_state, done)
             agent.learn(batch_size)
             state = next_state
