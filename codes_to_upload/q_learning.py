@@ -1,6 +1,7 @@
 import numpy as np
 import gymnasium as gym
 import random
+import matplotlib.pyplot as plt
 
 
 class QLearningAgent:
@@ -45,6 +46,8 @@ class QLearningAgent:
     # Q-learning algorithm
     def train_agent(self, num_train_episodes, max_steps):
         episode_rewards = []
+        rolling_avg_rewards = []
+
         for episode in range(num_train_episodes):
             state, _ = self.env.reset()
             state = self.discretize_state(state)
@@ -68,15 +71,20 @@ class QLearningAgent:
                 if done or truncated:  # If the episode ends
                     break
 
+            # Store reward for the episode
             episode_rewards.append(total_reward)
 
-            # Print the progress every 100 episodes
-            if (episode + 1) % 100 == 0:
-                avg_reward = np.mean(episode_rewards[-100:])
-                print(
-                    f"Episode {episode + 1}/{num_train_episodes}, Total Reward: {total_reward}",
-                    f"Average Reward (last 100): {avg_reward:.2f}, ",
-                )
+            # Calculate and store rolling average reward
+            if len(episode_rewards) >= 100:
+                rolling_avg_rewards.append(
+                    np.mean(episode_rewards[-100:])
+                )  # Average of the last 100 rewards
+            else:
+                rolling_avg_rewards.append(np.mean(episode_rewards))
+
+        overall_training_avg = np.mean(episode_rewards)
+        print(f"Average Training Reward: {overall_training_avg:.2f}")
+        return episode_rewards, rolling_avg_rewards, overall_training_avg
 
     def test_agent(self, num_test_episodes, max_steps):
         episode_rewards = []
@@ -97,13 +105,67 @@ class QLearningAgent:
                     break
 
             episode_rewards.append(total_reward)
-            print(f"Test Episode {episode + 1} Reward: {total_reward}")
 
-        print(f"Average Test Reward: {np.mean(episode_rewards):.2f}")
+        overall_test_avg = np.mean(episode_rewards)
+        print(f"Average Test Reward: {overall_test_avg:.2f}")
+        return overall_test_avg
+
+    def plot_graph(
+        self, episode_rewards, rolling_avg_rewards, training_avg, testing_avg
+    ):
+        episodes = np.arange(1, len(episode_rewards) + 1)
+        overall_avg_reward = np.mean(
+            episode_rewards
+        )  # Calculate overall average reward for training
+
+        # Create a figure with subplots
+        fig, axes = plt.subplots(
+            1, 2, figsize=(14, 7), gridspec_kw={"width_ratios": [2, 1]}
+        )
+
+        # First subplot: Reward vs. Number of Episodes (Training)
+        plt1 = axes[0]
+        plt1.plot(episodes, episode_rewards, label="Reward per Episode", alpha=0.5)
+        plt1.plot(
+            episodes,
+            rolling_avg_rewards,
+            label="Rolling Avg (Last 100 Episodes)",
+            color="red",
+        )
+        plt1.axhline(
+            y=overall_avg_reward,
+            color="green",
+            linestyle="--",
+            label=f"Overall Avg: {overall_avg_reward:.2f}",
+        )
+        plt1.set_title("Reward Gained vs Number of Training Episodes")
+        plt1.set_xlabel("Number of Training Episodes")
+        plt1.set_ylabel("Reward")
+        plt1.legend()
+        plt1.grid()
+
+        # Second subplot: Comparison of Training and Testing Averages
+        plt2 = axes[1]
+        categories = ["Training", "Testing"]
+        values = [training_avg, testing_avg]
+
+        plt2.bar(categories, values, color=["blue", "orange"], alpha=0.7, width=0.5)
+        plt2.set_title("Comparison of Average Rewards: Training vs Testing")
+        plt2.set_ylabel("Average Reward")
+        plt2.set_ylim(0, max(values) + 10)  # Adjust y-axis for better visibility
+
+        # Annotate the bars with exact values
+        for i, v in enumerate(values):
+            plt2.text(i, v + 1, f"{v:.2f}", ha="center", fontsize=10, color="black")
+
+        plt2.grid(axis="y", linestyle="--", alpha=0.7)
+
+        # Show the combined figure
+        plt.tight_layout()
+        plt.show()
 
 
 if __name__ == "__main__":
-
     # Using CartPole for environment
     env = gym.make("CartPole-v1")
 
@@ -116,6 +178,9 @@ if __name__ == "__main__":
     num_test_episodes = 10
 
     agent = QLearningAgent(env, alpha, gamma, epsilon)
-    agent.train_agent(num_train_episodes, max_steps)
-    agent.test_agent(num_test_episodes, max_steps)
+    episode_rewards, rolling_avg_rewards, training_avg = agent.train_agent(
+        num_train_episodes, max_steps
+    )
+    testing_avg = agent.test_agent(num_test_episodes, max_steps)
+    agent.plot_graph(episode_rewards, rolling_avg_rewards, training_avg, testing_avg)
     env.close()

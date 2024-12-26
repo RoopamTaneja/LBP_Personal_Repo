@@ -3,6 +3,7 @@ import numpy as np
 import random
 from collections import deque
 from tensorflow import keras
+import matplotlib.pyplot as plt
 
 
 class DQNAgent:
@@ -46,8 +47,10 @@ class DQNAgent:
     # Training : Behaviour policy : epsilon-greedy
     # Testing : Target policy : greedy
     def act(self, state, training):
+        # Exploration
         if training and np.random.random() <= self.epsilon:
             return self.env.action_space.sample()
+        # Exploitation
         act_values = self.model.predict(state, verbose=0)
         return np.argmax(act_values[0])
 
@@ -82,6 +85,8 @@ class DQNAgent:
 
     def train_dqn(self, episodes, max_steps, batch_size):
         scores = []
+        rolling_avg_scores = []
+
         for episode in range(episodes):
             state, _ = self.env.reset()
             state = np.reshape(state, [1, self.state_size])
@@ -104,6 +109,7 @@ class DQNAgent:
             # Print the progress every 10 episodes
             if (episode + 1) % 10 == 0:
                 avg_score = np.mean(scores[-10:])
+                rolling_avg_scores.append(avg_score)
                 print(
                     f"Episode: {episode + 1}/{episodes}, Score: {score}",
                     f"  Average Score (last 10): {avg_score:.2f}"
@@ -114,7 +120,9 @@ class DQNAgent:
             if episode % self.update_target_frequency == 0:
                 self.update_target_network()
 
-        print(f"\nAverage Overall Score: {np.mean(scores):.2f}\n")
+        overall_training_avg = np.mean(scores)
+        print(f"\nAverage Training Score: {overall_training_avg:.2f}\n")
+        return scores, rolling_avg_scores, overall_training_avg
 
     def test_dqn(self, episodes, max_steps):
         scores = []
@@ -135,7 +143,63 @@ class DQNAgent:
             scores.append(score)
             print(f"Test Episode: {episode+1}, Score: {score}")
 
-        print(f"Average Test Score: {np.mean(scores):.2f}")
+        overall_test_avg = np.mean(scores)
+        print(f"Average Test Score: {overall_test_avg:.2f}")
+        return overall_test_avg
+
+    def plot_graph(self, scores, rolling_avg_scores, training_avg, test_avg):
+        episodes = np.arange(1, len(scores) + 1)
+        rolling_avg_episodes = np.arange(10, len(scores) + 1, 10)
+
+        overall_avg_score = np.mean(
+            scores
+        )  # Calculate overall average score for training
+
+        # Create a figure with subplots
+        fig, axes = plt.subplots(
+            1, 2, figsize=(14, 7), gridspec_kw={"width_ratios": [2, 1]}
+        )
+
+        # First subplot: Scores vs. Number of Episodes (Training)
+        plt1 = axes[0]
+        plt1.plot(episodes, scores, label="Score per Episode", alpha=0.5)
+        plt1.plot(
+            rolling_avg_episodes,
+            rolling_avg_scores,
+            label="Rolling Avg (Last 10 Episodes)",
+            color="red",
+        )
+        plt1.axhline(
+            y=overall_avg_score,
+            color="green",
+            linestyle="--",
+            label=f"Overall Avg: {overall_avg_score:.2f}",
+        )
+        plt1.set_title("Score Gained vs Number of Training Episodes")
+        plt1.set_xlabel("Number of Training Episodes")
+        plt1.set_ylabel("Score")
+        plt1.legend()
+        plt1.grid()
+
+        # Second subplot: Comparison of Training and Testing Averages
+        plt2 = axes[1]
+        categories = ["Training", "Testing"]
+        values = [training_avg, test_avg]
+
+        plt2.bar(categories, values, color=["blue", "orange"], alpha=0.7, width=0.5)
+        plt2.set_title("Comparison of Average Scores: Training vs Testing")
+        plt2.set_ylabel("Average Score")
+        plt2.set_ylim(0, max(values) + 10)  # Adjust y-axis for better visibility
+
+        # Annotate the bars with exact values
+        for i, v in enumerate(values):
+            plt2.text(i, v + 1, f"{v:.2f}", ha="center", fontsize=10, color="black")
+
+        plt2.grid(axis="y", linestyle="--", alpha=0.7)
+
+        # Show the combined figure
+        plt.tight_layout()
+        plt.show()
 
 
 if __name__ == "__main__":
@@ -157,6 +221,9 @@ if __name__ == "__main__":
     agent = DQNAgent(
         env, learning_rate, gamma, epsilon_initial, epsilon_min, epsilon_decay
     )
-    agent.train_dqn(num_train_episodes, max_steps, batch_size)
-    agent.test_dqn(num_test_episodes, max_steps)
+    scores, rolling_avg_scores, training_avg = agent.train_dqn(
+        num_train_episodes, max_steps, batch_size
+    )
+    test_avg = agent.test_dqn(num_test_episodes, max_steps)
+    agent.plot_graph(scores, rolling_avg_scores, training_avg, test_avg)
     env.close()

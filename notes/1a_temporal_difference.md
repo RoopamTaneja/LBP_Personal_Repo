@@ -67,6 +67,7 @@ is not one step later, but n steps later.
 Idea is to average n-step returns for all n.
 
 ![](img\image-22.png)
+![](img\image-25.png)
 
 **Forward View Sarsa(λ)**
 
