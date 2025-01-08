@@ -2,7 +2,7 @@
 
 Since Q-table may become too big, it may be replaced by a function. 
 
-Since neural networks are excellent at modeling complex functions, we can use a neural network, which we call a Deep Q Network, to estimate this Q function. Typically CNNs are used.
+Since neural networks are excellent at modelling complex functions (function approximator), we can use a neural network, which we call a Deep Q Network, to estimate this Q function. Typically CNNs are used.
 
 Q learning is about learning Q values in a table, Deep Q learning is about learning parameters of the Q Network.
 

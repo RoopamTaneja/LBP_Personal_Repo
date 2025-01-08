@@ -2,9 +2,7 @@
 
 **Activation function** : A mathematical function applied to the output of a neuron. It introduces non-linearity into the model.
 
-Examples : sigmoid - slow learner ; relu - fast learner; softmax
-
-![](..\img\image.png)
+Examples : sigmoid - slow learner; relu - fast learner; softmax
 
 **Gradient Descent** : 
 
@@ -14,4 +12,4 @@ Optimizers : SGD , Adam (more common with neural networks), etc
 
 **Classification vs Regression**
 
-The main difference between Regression and Classification algorithms that Regression algorithms are used to predict the continuous values such as price, salary, age, etc. and Classification algorithms are used to predict/Classify the discrete values such as Male or Female, True or False, Spam or Not Spam, etc.
+The main difference : Regression algorithms are used to predict continuous values such as price, salary, age, etc. and Classification algorithms are used to predict/classify the discrete values such as Male or Female, True or False, Spam or Not Spam, etc.

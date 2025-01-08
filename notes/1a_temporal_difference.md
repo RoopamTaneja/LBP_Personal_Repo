@@ -18,7 +18,7 @@ These values are adjusted as you go across different time steps (hence temporal)
 
 ![](img/image-9.png)
 
-Thus, TD Learning is **online** and can learn from incomplete sequences.  That is, we don’t need to wait until the end of an episode — just until the next time step. Also, it also has lower variance than Monte Carlo. 
+Thus, TD Learning is **online** and can learn from incomplete sequences. That is, we don’t need to wait until the end of an episode — just until the next time step. Also, it has lower variance than Monte Carlo. 
 
 ![](img/image-8.png) 
 

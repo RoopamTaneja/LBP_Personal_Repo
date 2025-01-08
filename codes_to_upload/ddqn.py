@@ -68,9 +68,7 @@ class DDQNAgent:
 
         # Q(s', a) using target network (for the action selected by the main network)
         target_next = self.target_model.predict(next_states, verbose=0)
-        target_q = rewards + self.gamma * target_next[
-            np.arange(batch_size), next_actions
-        ] * (1 - dones)
+        target_q = rewards + self.gamma * target_next[np.arange(batch_size), next_actions] * (1 - dones)
 
         # Q(s, a) using main network
         target_f = self.model.predict(states, verbose=0)

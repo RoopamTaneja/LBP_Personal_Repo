@@ -154,8 +154,6 @@ B)
 1) Model Free : No model; Has policy and/or value function
 2) Model Based : Has a model
 
-![](img/image-7.png)
-
 ## Problems within RL
 
 ### Learning and Planning
