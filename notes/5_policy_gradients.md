@@ -22,7 +22,7 @@ Luckily, the policy gradient theorem provides a nice reformation of the derivati
 
 Skipping the proofs and details and jumping to the crux :
 
-![](img\image-26.jpg)
+![](img/image-26.jpg)
 
 Thus we can estimate policy gradient as mean over all timesteps of $\nabla_{\theta} \log \pi_{\theta}(a_t |s_t)  A_{\pi_{\theta}}(s_t, a_t)$ (or some other form).
 
@@ -60,7 +60,7 @@ redistributed to each actor. By doing this asynchronously, each actor has a pote
 point in time compared to the other actors. This decreases the correlation of the sampled trajectories across actors,
 which can further stabilize learning. The parameters get updated by a little bit in the direction of each training thread independently.
 
-![](img\image-27.png)
+![](img/image-27.png)
 
 A2C :
 

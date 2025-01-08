@@ -8,7 +8,7 @@ The idea behind TD learning is to improve the way we do **model-free learning**.
 
 Similarly to Monte Carlo methods, TD methods can work in a model-free learning. Similarly to DP, TD methods update the value estimates based partially on other estimates, without having to go through the entire episode (they bootstrap).
 
-![](img\image-17.png)
+![](img/image-17.png)
 
 The above TD update is called TD(0) or one-step TD. That is, because it updates the value following the next state (St+1).
 
@@ -36,7 +36,7 @@ On-policy TD learning for optimal q values.
 
 Behaviour = Target policy = Epsilon-greedy
 
-![](img\image-18.jpg)
+![](img/image-18.jpg)
 
 **Theorem** : Sarsa converges to the optimal action-value function, Q(s, a) → q∗(s, a).
 
@@ -50,15 +50,15 @@ often intermediate between the two extremes. n-step TD methods allow lookahead o
 an earlier estimate based on how it differs from a later estimate. Now the later estimate
 is not one step later, but n steps later.
 
-![](img\image-19.png)
+![](img/image-19.png)
 
-![](img\image-20.png)
+![](img/image-20.png)
 
 **n-step Sarsa**
 
-![](img\image-23.png)
+![](img/image-23.png)
 
-![](img\image-21.png)
+![](img/image-21.png)
 
 ---
 
@@ -66,9 +66,10 @@ is not one step later, but n steps later.
 
 Idea is to average n-step returns for all n.
 
-![](img\image-22.png)
-![](img\image-25.png)
+![](img/image-22.png)
+
+![](img/image-25.png)
 
 **Forward View Sarsa(λ)**
 
-![](img\image-24.png)
+![](img/image-24.png)
