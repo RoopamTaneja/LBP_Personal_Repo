@@ -1,9 +1,26 @@
-# Personal Repository for LBP
+Personal Repository maintained for Lab-Based Project done as part of course requirements during sixth semester of graduation.
 
-Has notes, implementations, project code etc
+Hopefully, this will be a useful resource in future for me for RL, DL etc.
 
-Focussed on RL algorithms for now.
+LBP Members :
+
+- Me : [RoopamTaneja](https://github.com/RoopamTaneja)
+- Vraj : [vraj-tvs](https://github.com/vraj-tvs)
+
+LBP org : https://github.com/Project-Group-LBP
+
+This repo has :
+
+- Personal notes and some implementations by me for personal learning.
+- Code contributed by both of us.
 
 Colab Notebooks:
 
-1) DDQN : https://colab.research.google.com/drive/1mCiVdE7P_jX5CSCnnI-QFyVarCZzpuWy?usp=sharing
+- DDQN : https://colab.research.google.com/drive/1mCiVdE7P_jX5CSCnnI-QFyVarCZzpuWy?usp=sharing
+
+Work done for project :
+
+- Studied and implemented value based deep RL algorithms : Deep Q Learning (DQN) and Double Deep Q Learning (DDQN) using Numpy, Keras and Gymnasium libraries.
+- Studied in-depth about policy based learning, policy gradients and actor-critic methods.
+- Studied and implemented actor-critic RL algorithms : Proximal Policy Optimization (PPO) and Deep Deterministic Policy Gradient (DDPG) using PyTorch, Keras, TensorFlow and Gymnasium libraries.
+- Studied basics of RL, DL, neural networks and Deep RL.

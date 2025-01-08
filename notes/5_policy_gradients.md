@@ -47,7 +47,7 @@ Details on REINFORCE, Vanilla Policy Gradient and other algos in `policy_gradien
 
 Here presenting A2C and A3C only :
 
-A3C - Asynchronous Advantage Actor-Critic (and A2C - Advantage Actor-Critic, its synchronous version) are the most basic actor-critic algorithms. They are on-policy and perform gradient ascent on $\nabla_{\theta} \log \pi_{\theta}(a_t |s_t)  A_{\pi_{\theta}}(s_t, a_t)$. 
+A3C - Asynchronous Advantage Actor-Critic (and A2C - Advantage Actor-Critic, its synchronous version) are the most basic actor-critic algorithms. They are **on-policy** and perform gradient ascent on $\nabla_{\theta} \log \pi_{\theta}(a_t |s_t)  A_{\pi_{\theta}}(s_t, a_t)$. 
 
 A common trick : for advantage estimation, we may use rtgs as Q estimate and critic network target when computing for batch vs TD target as Q estimate and critic network target when computing online. (Note that batch computation involves mean for actor loss while online does not)
 

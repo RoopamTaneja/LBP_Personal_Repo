@@ -2,7 +2,7 @@
 
 Extra info, proofs, rough notes and details in `policy_gradients_rough_notes/`. Optional to see.
 
-PPO is an on-policy algorithm. It can be used for environments with either discrete or continuous action spaces. It is an actor-critic style algorithm with a surrogate objective fn.
+PPO is an **on-policy** algorithm. It can be used for environments with either discrete or continuous action spaces. It is an actor-critic style algorithm with a surrogate objective fn.
 
 To improve training stability, we should avoid parameter updates that change the policy too much at one step. PPO is motivated by this: how to take the biggest possible improvement step on a policy using the data we currently have, without stepping so far that we accidentally cause performance collapse? For this, PPO uses first-order functions and is much simpler to implement than TRPO or others.
 

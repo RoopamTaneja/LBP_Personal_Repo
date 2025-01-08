@@ -22,4 +22,4 @@ Ponder for optimization:
 
 9) https://keras.io/examples/rl/deep_q_network_breakout/ 
 
-10) Using CNNs/ different loss fn/ l2 regularization/ vectorization/ depth of network/ gradient clipping
+10) Using CNNs/ different loss fn/ different activation fn/ l2 regularization/ vectorized ops/ depth of network/ gradient clipping/ entropy/ normalization
