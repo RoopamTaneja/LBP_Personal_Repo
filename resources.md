@@ -2,24 +2,20 @@
 
 1) David Silver
 
-2) CodeEmporium
+2) Sutton, Barto
 
-3) CIS 522 - Deep Learning
+3) https://spinningup.openai.com/en/latest/
 
-4) Sutton, Barto
-
-5) https://spinningup.openai.com/en/latest/
+4) marl-book
 
 Neural networks :
 
-6) Keras : https://keras.io/examples/
+5) Keras : https://keras.io/examples/
 
-7) https://victorzhou.com/series/neural-networks-from-scratch/
+6) https://victorzhou.com/series/neural-networks-from-scratch/
 
-8) http://neuralnetworksanddeeplearning.com/
+7) http://neuralnetworksanddeeplearning.com/
 
-Ponder for optimization:
+Ideas for optimization:
 
-9) https://keras.io/examples/rl/deep_q_network_breakout/ 
-
-10) Using CNNs/ different loss fn/ different activation fn/ l2 regularization/ vectorized ops/ depth of network/ gradient clipping/ entropy/ normalization
+Using CNNs/ different activation fn/ l2 regularization/ vectorized ops/ depth of network/ gradient clipping/ entropy/ normalization

@@ -99,4 +99,3 @@ Multi-agent centralized DQN:
 **Multi-agent centralized SARSA** learning will follow a similar algorithm just with a different Q function target $y_i = r_i^k + \gamma Q_i(h_i^{k+1}, a^{k+1}; \theta_i)$
 
 ---
-
