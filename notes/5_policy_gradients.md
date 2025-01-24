@@ -2,7 +2,7 @@
 
 Extra info, proofs, rough notes and details in `policy_gradients_rough_notes/`. Optional to see.
 
-Till now we looked at value based learning  where tried to approximate the true value function using some parameters. A policy was generated implicitly from the value function.
+Till now we looked at value based learning  where we tried to approximate the true value function using some parameters. A policy was generated implicitly from the value function.
 
 Now we move to policy based learning where we directly parametrize the policy and adjust its parameters $\theta$ to maximise some objective function $J(\theta)$.
 
@@ -18,7 +18,7 @@ Denote $G_t$ or return at each timestep (typically discounted) as rtgs (rewards-
 
 $J(\theta)$ can be modelled as expected return starting from an initial state. It would depend on state distribution and directly finding its gradient would be tough since the environment is generally unknown and it is difficult to estimate the effect on the state distribution by a policy update.
 
-Luckily, the policy gradient theorem provides a nice reformation of the derivative of the objective function to not involve the derivative of the state distribution and give it in form that can be easily used to find gradient using any DL library. 
+Luckily, the policy gradient theorem provides a nice reformation of the derivative of the objective function to not involve the derivative of the state distribution and give it in a form that can be easily used to find gradient using any DL library. 
 
 Skipping the proofs and details and jumping to the crux :
 
@@ -41,7 +41,7 @@ Structure of policy gradient based algorithms :
 
 ---
 
-For a stochastic policy, policy network will take in a state and output a probability distribution over the action space. (Look at `7_dpg_ddpg.md` for deterministic policies) To output a probability distribution, for a discrete action space a categorical distribution is achieved typically using softmax. While for a continuous action space, it is common to use a diagonal gaussian policy with mean coming from the network. Std deviation may be learnt as well or be independent.
+For a stochastic policy, policy network will take in a state and output a probability distribution over the action space. (Look at `7_dpg_ddpg.md` for deterministic policies) To output a probability distribution, for a discrete action space a categorical distribution is achieved typically using softmax. While for a continuous action space, it is common to use a diagonal gaussian policy with mean coming from the network. Std deviation may be learnt as well or may be independent.
 
 Details on REINFORCE, Vanilla Policy Gradient and other algos in `policy_gradients_rough_notes/`. See them if desired.
 
@@ -64,7 +64,7 @@ which can further stabilize learning. The parameters get updated by a little bit
 
 A2C :
 
-A2C is a synchronous, deterministic version of A3C. In A3C each agent talks to the global parameters independently, so it is possible sometimes the thread-specific agents would be playing with policies of different versions and therefore the aggregated update would not be optimal. To resolve the inconsistency, a coordinator in A2C waits for all the parallel actors to finish their work before updating the global parameters and then in the next iteration parallel actors starts from the same policy. The synchronized gradient update keeps the training more cohesive and potentially to make convergence faster. A2C has been shown to be able to utilize GPUs more efficiently and work better with large batch sizes while achieving same or better performance than A3C.
+A2C is a synchronous, deterministic version of A3C. In A3C each agent talks to the global parameters independently, so it is possible sometimes the thread-specific agents would be playing with policies of different versions and therefore the aggregated update would not be optimal. To resolve the inconsistency, a coordinator in A2C waits for all the parallel actors to finish their work before updating the global parameters and then in the next iteration parallel actors starts from the same policy. The synchronized gradient update keeps the training more cohesive and potentially makes convergence faster. A2C has been shown to be able to utilize GPUs more efficiently and work better with large batch sizes while achieving same or better performance than A3C.
 
 ---
 

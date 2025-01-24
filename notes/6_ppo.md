@@ -21,7 +21,7 @@ We’ll focus only on PPO-Clip.
 We only clip if the objective function would
 improve. If the policy is changed in the opposite direction such that $J^{\text{CLIP}}(\theta)$ decreases, $r(\theta)$ is not clipped (since there is min). This is because it was a step in the wrong direction (e.g., the action was good but we accidentally made it less probable). If we had not included the min in the objective function, these regions would be flat (gradient = 0, no update to theta) and we would be prevented from fixing mistakes.
 
-Thus, the clipping limits the effective change you can make at each step in order to improve stability, and the minimization allows us to fix our mistakes in case we screwed it up.
+Thus, the clipping limits the effective change you can make at each step in order to improve stability, and the min allows us to fix our mistakes in case we screwed it up.
 
 ---
 

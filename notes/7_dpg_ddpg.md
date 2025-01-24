@@ -13,13 +13,13 @@ The deterministic policy gradient can be plugged into common policy gradient fra
 
 ![](img/image-28.png)
 
-In the off-policy alogithm in above image, the critic uses Q-learning updates to estimate the Q function.
+In the off-policy algorithm in above image, the critic uses Q-learning updates to estimate the Q function.
 
 ## DDPG (Deep Deterministic Policy Gradient)
 
 **Must see implementation in `key_implementations/ddpg.py`.**
 
-DDPG is a model-free off-policy actor-critic algorithm for continuous action spaces. It learns a deterministic policy and a Q function simultaneously. 
+DDPG is a model-free off-policy actor-critic algorithm meant for continuous action spaces (since we want Q to be differentiable wrt a that's why). It learns a deterministic policy and a Q function simultaneously. 
 
 DDPG is found to work well for physical control problems even when input for such problems is image or video. DDPG also typically involves batch normalization.
 
