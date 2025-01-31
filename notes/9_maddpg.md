@@ -28,6 +28,7 @@ Implementation links :
 
 - https://github.com/Git-123-Hub/maddpg-pettingzoo-pytorch
 - https://github.com/xuehy/pytorch-maddpg/
+- https://github.com/starry-sky6688/MADDPG
 
 **Extra details about algorithm**:
 
