@@ -10,7 +10,7 @@ The standard definition of an MDP is for a single agent, who controls all of the
 
 Let's focus on stochastic games:
 
-A **stochastic game** is a tuple $G = (S, A^1, \ldots A^n, r^1, \ldots, r^n, P, \gamma)$ where:
+A **stochastic game** is a tuple $G = (S, A^1, \ldots A^n, r^1, \ldots, r^n, P, \gamma, \mu)$ where:
 
 - $S$ is a set of states                                     
 - $A^j$ is the set of actions for agent $j$, 
@@ -39,12 +39,12 @@ $$
 The objective for an agent is to maximise its own reward:
 
 $$
-V_{\pi^j}(s) = E_{\pi^j}[\, \sum_{i} \gamma^i \, r^j(s_i, a, s_{i+1}) \ | \ s_0 = s, a = \pi(s_i)]
+V_{\pi^j}(s) = E_{\pi^j}[\sum_{i} \gamma^i r^j(s_i, a, s_{i+1}) \ | \ s_0 = s, a = \pi(s_i)]
 $$
 
 Note that $a = \pi(s_i)$ is the joint action of all agents. So, each agent's objective is to maximise its own expected reward considering the possible actions of all other agents.
 
-Multi-Agent Reinforcement Learning approaches for solving stochastic games:
+Multi-Agent reinforcement learning approaches for solving stochastic games:
 
 - Decentralized : All agents are trained independently. No info is shared between the agents.
   
@@ -54,14 +54,14 @@ Multi-Agent Reinforcement Learning approaches for solving stochastic games:
 
   Challenges : 
   - Difficult to learn without info sharing.
-  - Multiple agents interacting make environment non-stationery (underlying MDP changes over time) so many of existing RL algorithms can't be applied. Kind of like moving targets. Can lead to situations where the solution never converges.
+  - Multiple agents interacting make environment non-stationary (underlying MDP changes over time) so many of existing RL algorithms can't be applied. Kind of like moving targets. Can lead to situations where the solution never converges.
   - Symmetric states (just positions of identical agents swapped) maybe considered different and relearnt even though optimal action is same for both.
 
 - Centralized : Higher level process which collects experiences from all agents and learns a policy which is then distributed back to the agents. 
   
   Especially beneficial if agents are identical since a single policy needs to be learnt for all of them. The policy is learnt considering the agents as a a larger entity and hence doesn't matter which is where since they are interchangeable. 
   
-  Thus in centralized, agents learn from collective experiences. Also the environment is stationery since all are a larger entity and they know each other's policy changes.
+  Thus in centralized, agents learn from collective experiences. Also the environment is stationary since all are a larger entity and they know each other's policy changes.
 
 
 
@@ -72,7 +72,7 @@ In multi-agent settings, on-policy algorithms like independent REINFORCE have an
 advantage over off-policy algorithms, such as independent DQN, since they use most recent experiences and hence learn from current policies of other agents.
 
 
-However most of these algorithms face problem of non-stationarity since they assume other agents as part of the environment which have changing policies and thus make the environment non-stationery. This is a limitation and can be mitigated to some extent by using **CTDE (Centralized Training and Decentralized Execution)**. 
+However most of these algorithms face problem of non-stationarity since they assume other agents as part of the environment which have changing policies and thus make the environment non-stationary. This is a limitation and can be mitigated to some extent by using **CTDE (Centralized Training and Decentralized Execution)**. 
 
 Under CTDE paradigm,
 agents can share information during training to stabilize learning, as long as
