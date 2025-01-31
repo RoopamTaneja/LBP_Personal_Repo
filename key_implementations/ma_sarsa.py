@@ -128,6 +128,7 @@ class MultiAgentSARSA:
 
     def train(self, episodes=1000):
         rewards_per_episode = []
+        rolling_avg_rewards = []
 
         for _ in range(episodes):
             state = self.env.reset()
@@ -162,7 +163,15 @@ class MultiAgentSARSA:
             rewards_per_episode.append(total_reward)
             self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
 
-        return rewards_per_episode
+            # Calculate and store rolling average reward
+            if len(rewards_per_episode) >= 50:
+                rolling_avg_rewards.append(
+                    np.mean(rewards_per_episode[-50:])
+                )  # Average of the last 100 rewards
+            else:
+                rolling_avg_rewards.append(np.mean(rewards_per_episode))
+
+        return rewards_per_episode, rolling_avg_rewards
 
     def test(self, episodes=100):
         total_rewards = []
@@ -187,26 +196,35 @@ class MultiAgentSARSA:
         return total_rewards
 
 
-def plot_results(train_rewards, test_rewards):
-    cumm_avg_rewards = [
-        np.mean(train_rewards[i : i + 50]) for i in range(0, len(train_rewards), 50)
-    ]
+def plot_results(train_rewards, rolling_avg_rewards, test_rewards):
     avg_train_reward = np.mean(train_rewards)
     avg_test_reward = np.mean(test_rewards)
 
-    _, axs = plt.subplots(1, 2, figsize=(12, 5))
+    fig, axs = plt.subplots(1, 2, figsize=(14, 7), gridspec_kw={"width_ratios": [2, 1]})
 
-    axs[0].plot(train_rewards, label="Rewards per Episode", alpha=0.6)
     axs[0].plot(
-        range(0, len(train_rewards), 50),
-        cumm_avg_rewards,
-        label="Cumulative Rewards (per 50 episodes)",
-        marker="o",
+        np.arange(1, len(train_rewards) + 1),
+        train_rewards,
+        label="Rewards per Episode",
+        alpha=0.5,
+    )
+    axs[0].plot(
+        np.arange(1, len(train_rewards) + 1),
+        rolling_avg_rewards,
+        label="Rolling Average Rewards (per 50 episodes)",
+        color="red",
+    )
+    axs[0].axhline(
+        y=avg_train_reward,
+        color="green",
+        linestyle="--",
+        label=f"Overall Avg: {avg_train_reward:.2f}",
     )
     axs[0].set_xlabel("Episodes")
     axs[0].set_ylabel("Total Reward")
     axs[0].set_title("Training Progress")
     axs[0].legend()
+    axs[0].grid()
 
     axs[1].bar(
         ["Training", "Testing"],
@@ -215,6 +233,12 @@ def plot_results(train_rewards, test_rewards):
     )
     axs[1].set_ylabel("Average Reward")
     axs[1].set_title("Avg Training vs Avg Testing Reward")
+
+    # Annotate the bars with exact values
+    for i, v in enumerate([avg_train_reward, avg_test_reward]):
+        axs[1].text(i, v + 1, f"{v:.2f}", ha="center", fontsize=10, color="black")
+
+    axs[1].grid(axis="y", linestyle="--", alpha=0.7)
 
     plt.tight_layout()
     plt.show()
@@ -227,9 +251,9 @@ if __name__ == "__main__":
     )
 
     print("Training in progress...")
-    train_rewards = agents.train(1000)
+    train_rewards, rolling_avg_rewards = agents.train(1000)
 
-    print("Testing using target Q-table...")
+    print("Testing in progress...")
     test_rewards = agents.test(100)
 
     avg_train_reward = np.mean(train_rewards)
@@ -238,4 +262,4 @@ if __name__ == "__main__":
     print(f"Average Training Reward: {avg_train_reward}")
     print(f"Average Testing Reward: {avg_test_reward}")
 
-    plot_results(train_rewards, test_rewards)
+    plot_results(train_rewards, rolling_avg_rewards, test_rewards)

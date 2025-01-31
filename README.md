@@ -18,7 +18,7 @@ Colab Notebooks:
 
 - DDQN : https://colab.research.google.com/drive/1mCiVdE7P_jX5CSCnnI-QFyVarCZzpuWy?usp=sharing
 
-Work done for project :
+Work done by both till now for project :
 
 - Studied and implemented value based deep RL algorithms : Deep Q Learning (DQN) and Double Deep Q Learning (DDQN) using Numpy, Keras and Gymnasium libraries.
 - Studied in-depth about policy based learning, policy gradients and actor-critic methods.
@@ -28,4 +28,4 @@ Work done for project :
 - Studied in-depth about Multi-Agent Deep Deterministic Policy Gradient (MADDPG).
 - Studied basics of RL, DL, neural networks and Deep RL.
 
-**Future : add codes of ma sarsa, maddpg**
+**Future : add codes of maddpg**
