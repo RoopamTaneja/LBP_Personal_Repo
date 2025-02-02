@@ -306,10 +306,10 @@ def load_model(maddpg, episode_length, file):
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--train", action="store_true")
-    # parser.add_argument("--test", action="store_true")
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--train", action="store_true")
+    parser.add_argument("--test", action="store_true")
+    args = parser.parse_args()
 
     LEARN_INTERVAL = 100
     INITIAL_STEPS = 50000
@@ -335,14 +335,14 @@ if __name__ == "__main__":
     )
     result_dir = os.path.join("./results")
 
-    # if args.train:
-    print("Training")
-    episode_rewards = maddpg.train(NUM_TRAIN_EPISODES, INITIAL_STEPS)
-        # save_model(maddpg, result_dir)
-        # plot_graphs(NUM_TRAIN_EPISODES, episode_rewards, result_dir)
+    if args.train:
+        print("Training")
+        episode_rewards = maddpg.train(NUM_TRAIN_EPISODES, INITIAL_STEPS)
+        save_model(maddpg, result_dir)
+        plot_graphs(NUM_TRAIN_EPISODES, episode_rewards, result_dir)
 
-    # if args.test:
-    print("Testing")
-        # load_model(maddpg, TEST_EPISODE_LENGTH, os.path.join(result_dir, "model.pt"))
-    episode_rewards = maddpg.test(NUM_TEST_EPISODES)
-        # plot_graphs(NUM_TEST_EPISODES, episode_rewards, result_dir, test=True)
+    if args.test:
+        print("Testing")
+        load_model(maddpg, TEST_EPISODE_LENGTH, os.path.join(result_dir, "model.pt"))
+        episode_rewards = maddpg.test(NUM_TEST_EPISODES)
+        plot_graphs(NUM_TEST_EPISODES, episode_rewards, result_dir, test=True)
