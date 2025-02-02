@@ -1,14 +1,12 @@
-"""
-agents must learn to cover all the landmarks while avoiding collisions.
-
-More specifically, all agents are globally rewarded 
-based on how far the closest agent is to each landmark 
-(negative sum of the minimum distances). 
-Locally, the agents are penalized if they collide with 
-other agents (-1 for each collision).
-"""
-
+# Environment : simple_spread_v3 (parallel)
 # https://pettingzoo.farama.org/environments/mpe/simple_spread/
+
+# Agents must learn to cover all the landmarks while avoiding collisions.
+# More specifically, all agents are globally rewarded
+# based on how far the closest agent is to each landmark
+# (negative sum of the minimum distances).
+# Locally, the agents are penalized if they collide with
+# other agents (-1 for each collision).
 
 import numpy as np
 import torch
@@ -16,11 +14,9 @@ from torch import nn, Tensor
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from pettingzoo.mpe import simple_spread_v3
-
 import os
 import argparse
 from typing import List
-
 
 from sample import Agent
 
@@ -173,27 +169,25 @@ class MADDPG:
             actor_loss_pse = torch.pow(logits, 2).mean()
             agent.update_actor(actor_loss + 1e-3 * actor_loss_pse)
 
-    def update_target(self, tau):
+    def update_targets(self):
         def soft_update(from_network, to_network):
-            """copy the parameters of `from_network` to `to_network` with a proportion of tau"""
             for from_p, to_p in zip(from_network.parameters(), to_network.parameters()):
-                to_p.data.copy_(tau * from_p.data + (1.0 - tau) * to_p.data)
+                to_p.data.copy_(self.tau * from_p.data + (1.0 - self.tau) * to_p.data)
 
         for agent in self.agents.values():
             soft_update(agent.actor, agent.target_actor)
             soft_update(agent.critic, agent.target_critic)
 
-    def train(self, episodes, initial_steps):
-        step = 0  # global step counter
+    def train(self, episodes, initial_steps, learn_interval):
+        step = 0
         self.env.reset()
-        # reward of each episode of each agent
         episode_rewards = {agent_id: np.zeros(episodes) for agent_id in self.env.agents}
-        for episode in range(episodes):
+
+        for epi in range(episodes):
             obs, _ = self.env.reset()
-            agent_reward = {
-                agent_id: 0 for agent_id in self.env.agents
-            }  # agent reward of the current episode
-            while self.env.agents:  # interact with the env for an episode
+            curr_epi_rewards = {agent_id: 0 for agent_id in self.env.agents}
+
+            while self.env.agents:
                 step += 1
                 if step < initial_steps:
                     action = {
@@ -203,58 +197,59 @@ class MADDPG:
                 else:
                     action = self.select_action(obs)
 
-                next_obs, reward, termination, truncation, _ = self.env.step(action)
-                self.add(obs, action, reward, next_obs, termination, truncation)
+                next_obs, reward, term, trunc, _ = self.env.step(action)
+                self.add(obs, action, reward, next_obs, term, trunc)
                 obs = next_obs
 
-                for agent_id, r in reward.items():  # update reward
-                    agent_reward[agent_id] += r
+                for agent_id, r in reward.items():
+                    curr_epi_rewards[agent_id] += r
 
-                if (
-                    step >= initial_steps and step % LEARN_INTERVAL == 0
-                ):  # learn every few steps
+                if step >= initial_steps and step % learn_interval == 0:
                     self.learn()
-                    self.update_target(TAU)
+                    self.update_targets()
 
-            # episode finishes
-            for agent_id, r in agent_reward.items():  # record reward
-                episode_rewards[agent_id][episode] = r
+            for agent_id, r in curr_epi_rewards.items():
+                episode_rewards[agent_id][epi] = r
 
-            if (episode + 1) % 100 == 0:  # print info every 100 episodes
-                message = f"episode {episode + 1}, "
+            if (epi + 1) % 100 == 0:
+                message = f"Episode {epi + 1}, "
                 sum_reward = 0
-                for agent_id, r in agent_reward.items():  # record reward
-                    message += f"{agent_id}: {r:>4f}; "
-                    sum_reward += r
-                message += f"sum reward: {sum_reward}"
+                for agent_id, reward in curr_epi_rewards.items():
+                    message += f"{agent_id}: {reward:>4f}; "
+                    sum_reward += reward
+                message += f"Sum: {sum_reward}"
                 print(message)
 
         return episode_rewards
 
     def test(self, episodes):
-        # reward of each episode of each agent
         self.env.reset()
         episode_rewards = {agent_id: np.zeros(episodes) for agent_id in self.env.agents}
-        for episode in range(episodes):
+
+        for epi in range(episodes):
             obs, _ = self.env.reset()
-            agent_reward = {
-                agent_id: 0 for agent_id in self.env.agents
-            }  # agent reward of the current episode
-            while self.env.agents:  # interact with the env for an episode
-                actions = self.select_action(obs)
-                next_obs, rewards, _, _, _ = self.env.step(actions)
+            curr_epi_rewards = {agent_id: 0 for agent_id in self.env.agents}
+
+            while self.env.agents:
+                action = self.select_action(obs)
+                next_obs, reward, _, _, _ = self.env.step(action)
                 obs = next_obs
 
-                for agent_id, reward in rewards.items():  # update reward
-                    agent_reward[agent_id] += reward
+                for agent_id, r in reward.items():
+                    curr_epi_rewards[agent_id] += r
 
-            if (episode + 1) % 5 == 0:
-                message = f"episode {episode + 1}, "
-                # episode finishes, record reward
-                for agent_id, reward in agent_reward.items():
-                    episode_rewards[agent_id][episode] = reward
+            for agent_id, r in curr_epi_rewards.items():
+                episode_rewards[agent_id][epi] = r
+
+            if (epi + 1) % 5 == 0:
+                message = f"Episode {epi + 1}, "
+                sum_reward = 0
+                for agent_id, reward in curr_epi_rewards.items():
                     message += f"{agent_id}: {reward:>4f}; "
+                    sum_reward += reward
+                message += f"Sum: {sum_reward}"
                 print(message)
+
         return episode_rewards
 
 
@@ -312,7 +307,7 @@ if __name__ == "__main__":
     # args = parser.parse_args()
 
     LEARN_INTERVAL = 100
-    INITIAL_STEPS = 50000
+    INITIAL_STEPS = 5000
     TAU = 0.02
     GAMMA = 0.95
     BUFFER_CAPACITY = 1000000
@@ -337,12 +332,12 @@ if __name__ == "__main__":
 
     # if args.train:
     print("Training")
-    episode_rewards = maddpg.train(NUM_TRAIN_EPISODES, INITIAL_STEPS)
-        # save_model(maddpg, result_dir)
-        # plot_graphs(NUM_TRAIN_EPISODES, episode_rewards, result_dir)
+    episode_rewards = maddpg.train(NUM_TRAIN_EPISODES, INITIAL_STEPS, LEARN_INTERVAL)
+    # save_model(maddpg, result_dir)
+    # plot_graphs(NUM_TRAIN_EPISODES, episode_rewards, result_dir)
 
     # if args.test:
     print("Testing")
-        # load_model(maddpg, TEST_EPISODE_LENGTH, os.path.join(result_dir, "model.pt"))
+    # load_model(maddpg, TEST_EPISODE_LENGTH, os.path.join(result_dir, "model.pt"))
     episode_rewards = maddpg.test(NUM_TEST_EPISODES)
-        # plot_graphs(NUM_TEST_EPISODES, episode_rewards, result_dir, test=True)
+    # plot_graphs(NUM_TEST_EPISODES, episode_rewards, result_dir, test=True)
