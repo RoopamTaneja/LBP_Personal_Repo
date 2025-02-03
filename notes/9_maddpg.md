@@ -1,3 +1,7 @@
+**Must see implementation in `key_implementations/maddpg.py`.**
+
+*Original paper also saved in folder.*
+
 Multi-Agent DDPG (MADDPG) is an actor-critic algorithm that extends DDPG to an environment with multiple agents. It is proposed for stochastic games. It is applicable to cooperative, competitive and even mixed interaction.
 
 To handle non-stationarity, it uses *decentralized actors and a centralized critic* (CTDE paradigm). 
@@ -23,12 +27,6 @@ environment is stationary even as the policies change. This is not the case if w
 do not explicitly condition on the actions of other agents, as done for most traditional RL methods.
 
 ![](img/image-34.png)
-
-Implementation links : 
-
-- https://github.com/Git-123-Hub/maddpg-pettingzoo-pytorch
-- https://github.com/xuehy/pytorch-maddpg/
-- https://github.com/starry-sky6688/MADDPG
 
 **Extra details about algorithm**:
 
