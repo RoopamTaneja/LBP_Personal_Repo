@@ -1,15 +1,3 @@
-# Maybe look at batch normalization and noise decay
-
-# Environment : simple_spread_v3 (parallel)
-# https://pettingzoo.farama.org/environments/mpe/simple_spread/
-
-# Agents must learn to cover all the landmarks while avoiding collisions.
-# More specifically, all agents are globally rewarded
-# based on how far the closest agent is to each landmark
-# (negative sum of the minimum distances).
-# Locally, the agents are penalized if they collide with
-# other agents (-1 for each collision).
-
 import numpy as np
 import torch
 from torch import nn, Tensor
@@ -19,55 +7,15 @@ from pettingzoo.mpe import simple_spread_v3
 import os
 import argparse
 from typing import List
-import copy
-
-
-class OUActionNoise:
-    def __init__(self, action_dim, mu=0.0, theta=0.15, sigma=0.2, dt=1e-2):
-        self.mu = np.ones(action_dim) * mu
-        self.theta = theta
-        self.sigma = np.ones(action_dim) * sigma
-        self.dt = dt
-        self.reset()
-
-    def __call__(self):
-        x = self.state
-        dx = self.theta * (self.mu - x) * self.dt + self.sigma * np.sqrt(
-            self.dt
-        ) * np.random.normal(size=self.mu.shape)
-        self.state = x + dx
-        return self.state
-
-    def reset(self):
-        self.state = np.copy(self.mu)
-
-
-class MLPNetwork(nn.Module):
-    def __init__(self, input_dim, output_dim, is_actor = False):
-        super(MLPNetwork, self).__init__()
-        self.is_actor = is_actor
-        self.layer1 = nn.Linear(input_dim, 64)
-        self.layer2 = nn.Linear(64, 64)
-        self.layer3 = nn.Linear(64, output_dim)
-
-    def forward(self, input):
-        if isinstance(input, np.ndarray):
-            input = torch.tensor(input, dtype=torch.float)
-        x = nn.functional.relu(self.layer1(input))
-        x = nn.functional.relu(self.layer2(x))
-        if self.is_actor:
-            output =  torch.sigmoid(self.layer3(x))
-        else:
-            output = self.layer3(x)
-        return output
+from maddpg import MLPNetwork
 
 
 class Agent:
     def __init__(self, obs_dim, act_dim, global_dim, actor_lr, critic_lr):
-        self.actor = MLPNetwork(obs_dim, act_dim, is_actor=True)
+        self.actor = MLPNetwork(obs_dim, act_dim)
+        self.target_actor = MLPNetwork(obs_dim, act_dim)
         self.critic = MLPNetwork(global_dim, 1)
-        self.target_actor = copy.deepcopy(self.actor)
-        self.target_critic = copy.deepcopy(self.critic)
+        self.target_critic = MLPNetwork(global_dim, 1)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=critic_lr)
 
@@ -189,13 +137,11 @@ class MADDPG:
         global_obs_act_dim = self.env.num_agents * (self.obs_dim + self.act_dim)
         # create Agent(actor-critic) and replay buffer for each agent
         self.agents = {}
-        self.buffers = {}
         for agent_id in self.env.agents:
             self.agents[agent_id] = Agent(
                 self.obs_dim, self.act_dim, global_obs_act_dim, actor_lr, critic_lr
             )
-            self.buffers[agent_id] = Buffer(capacity, self.obs_dim, self.act_dim)
-
+        self.buffer = Buffer(capacity, self.obs_dim, self.act_dim)
         self.batch_size = batch_size
         self.gamma = gamma
         self.tau = tau
@@ -212,13 +158,10 @@ class MADDPG:
             r = reward[agent_id]
             next_o = next_obs[agent_id]
             d = termination[agent_id] or truncation[agent_id]
-            self.buffers[agent_id].add(o, a, r, next_o, d)
+            self.buffer.add(o, a, r, next_o, d)
 
     def sample(self, batch_size):
-        """sample experience from all the agents' buffers, and collect data for network input"""
-        # get the total num of transitions, these buffers should have same number of transitions
-        total_num = len(self.buffers["agent_0"])
-        indices = np.random.choice(total_num, size=batch_size, replace=False)
+        indices = np.random.choice(len(self.buffer), size=batch_size, replace=False)
 
         # NOTE that in MADDPG, we need the obs and actions of all agents
         # but only the reward and done of the current agent is needed in the calculation
@@ -272,180 +215,3 @@ class MADDPG:
             ).mean()
             actor_loss_pse = torch.pow(logits, 2).mean()
             agent.update_actor(actor_loss + 1e-3 * actor_loss_pse)
-
-    def update_targets(self):
-        def soft_update(from_network, to_network):
-            for from_p, to_p in zip(from_network.parameters(), to_network.parameters()):
-                to_p.data.copy_(self.tau * from_p.data + (1.0 - self.tau) * to_p.data)
-
-        for agent in self.agents.values():
-            soft_update(agent.actor, agent.target_actor)
-            soft_update(agent.critic, agent.target_critic)
-
-    def train(self, episodes, initial_steps, learn_interval):
-        step = 0
-        self.env.reset()
-        episode_rewards = {agent_id: np.zeros(episodes) for agent_id in self.env.agents}
-
-        for epi in range(episodes):
-            obs, _ = self.env.reset()
-            curr_epi_rewards = {agent_id: 0 for agent_id in self.env.agents}
-
-            while self.env.agents:
-                step += 1
-                if step < initial_steps:  # randomly explore initially
-                    action = {
-                        agent_id: self.env.action_space(agent_id).sample()
-                        for agent_id in self.env.agents
-                    }
-                else:  # select action using policy
-                    action = self.select_action(obs)
-
-                next_obs, reward, term, trunc, _ = self.env.step(action)
-                self.add(obs, action, reward, next_obs, term, trunc)
-                obs = next_obs
-
-                for agent_id, r in reward.items():
-                    curr_epi_rewards[agent_id] += r
-
-                if step >= initial_steps and step % learn_interval == 0:
-                    self.learn()
-                    self.update_targets()
-
-            for agent_id, r in curr_epi_rewards.items():
-                episode_rewards[agent_id][epi] = r
-
-            if (epi + 1) % 100 == 0:
-                message = f"Episode {epi + 1}, "
-                sum_reward = 0
-                for agent_id, reward in curr_epi_rewards.items():
-                    message += f"{agent_id}: {reward:>4f}; "
-                    sum_reward += reward
-                message += f"Sum: {sum_reward}"
-                print(message)
-
-        return episode_rewards
-
-    def test(self, episodes):
-        self.env.reset()
-        episode_rewards = {agent_id: np.zeros(episodes) for agent_id in self.env.agents}
-
-        for epi in range(episodes):
-            obs, _ = self.env.reset()
-            curr_epi_rewards = {agent_id: 0 for agent_id in self.env.agents}
-
-            while self.env.agents:
-                action = self.select_action(obs)
-                next_obs, reward, _, _, _ = self.env.step(action)
-                obs = next_obs
-
-                for agent_id, r in reward.items():
-                    curr_epi_rewards[agent_id] += r
-
-            for agent_id, r in curr_epi_rewards.items():
-                episode_rewards[agent_id][epi] = r
-
-            if (epi + 1) % 5 == 0:
-                message = f"Episode {epi + 1}, "
-                sum_reward = 0
-                for agent_id, reward in curr_epi_rewards.items():
-                    message += f"{agent_id}: {reward:>4f}; "
-                    sum_reward += reward
-                message += f"Sum: {sum_reward}"
-                print(message)
-
-        return episode_rewards
-
-
-# saving actor parameters for each agent
-def save_model(maddpg, result_dir):
-    if not os.path.exists(result_dir):
-        os.makedirs(result_dir)
-    torch.save(
-        {name: agent.actor.state_dict() for name, agent in maddpg.agents.items()},
-        os.path.join(result_dir, "model.pt"),
-    )
-
-
-def get_running_reward(arr: np.ndarray, window=100):
-    running_reward = np.zeros_like(arr)
-    for i in range(window - 1):
-        running_reward[i] = np.mean(arr[: i + 1])
-    for i in range(window - 1, len(arr)):
-        running_reward[i] = np.mean(arr[i - window + 1 : i + 1])
-    return running_reward
-
-
-def plot_graphs(num_episodes, episode_rewards, result_dir, test=False):
-    _, ax = plt.subplots()
-    x = range(1, num_episodes + 1)
-    for agent_id, reward in episode_rewards.items():
-        ax.plot(x, reward, label=agent_id)
-        if test == False:
-            ax.plot(x, get_running_reward(reward))
-    ax.legend()
-    ax.set_xlabel("Episode")
-    ax.set_ylabel("Reward")
-    if test:
-        title = "Testing"
-    else:
-        title = "Training"
-    ax.set_title(title)
-    plt.savefig(os.path.join(result_dir, title))
-
-
-def load_model(maddpg, episode_length, file):
-    if not os.path.exists(file):
-        raise FileNotFoundError(f"File not found: {file}")
-    data = torch.load(file, weights_only=True)
-    maddpg.env = simple_spread_v3.parallel_env(
-        max_cycles=episode_length, continuous_actions=True
-    )
-    maddpg.env.reset()
-    for agent_id, agent in maddpg.agents.items():
-        agent.actor.load_state_dict(data[agent_id])
-
-
-if __name__ == "__main__":
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("--train", action="store_true")
-    # parser.add_argument("--test", action="store_true")
-    # parser.add_argument("--local_ratio", type=float, default=0.5)
-    # args = parser.parse_args()
-    # env = simple_spread_v3.parallel_env(max_cycles=25, continuous_actions=True, local_ratio=args.local_ratio)
-
-    LEARN_INTERVAL = 100
-    INITIAL_STEPS = 5000
-    TAU = 0.02
-    GAMMA = 0.95
-    BUFFER_CAPACITY = 1000000
-    BATCH_SIZE = 1024
-    ACTOR_LR = 0.01
-    CRITIC_LR = 0.01
-    NUM_TRAIN_EPISODES = 3000
-    NUM_TEST_EPISODES = 50
-    TRAIN_EPISODE_LENGTH = 25
-    TEST_EPISODE_LENGTH = 50
-
-    maddpg = MADDPG(
-        TRAIN_EPISODE_LENGTH,
-        BUFFER_CAPACITY,
-        BATCH_SIZE,
-        GAMMA,
-        TAU,
-        ACTOR_LR,
-        CRITIC_LR,
-    )
-    result_dir = os.path.join("./results")
-
-    # if args.train:
-    print("Training")
-    episode_rewards = maddpg.train(NUM_TRAIN_EPISODES, INITIAL_STEPS, LEARN_INTERVAL)
-    # save_model(maddpg, result_dir)
-    # plot_graphs(NUM_TRAIN_EPISODES, episode_rewards, result_dir)
-
-    # if args.test:
-    print("Testing")
-    # load_model(maddpg, TEST_EPISODE_LENGTH, os.path.join(result_dir, "model.pt"))
-    episode_rewards = maddpg.test(NUM_TEST_EPISODES)
-    # plot_graphs(NUM_TEST_EPISODES, episode_rewards, result_dir, test=True)

@@ -1,9 +1,5 @@
 # DDPG implementation in keras and tensorflow
 
-# For next time :
-# Test with different parameters and no of episodes
-# Maybe look at batch normalization, update frequency and noise decay
-
 import tensorflow as tf
 from tensorflow import keras
 import gymnasium as gym
