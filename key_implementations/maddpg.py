@@ -1,7 +1,7 @@
-# Maybe look at batch normalization and noise decay
-
-# Environment : simple_spread_v3 (parallel)
+# Pytorch implementation of MADDPG algorithm
+# for simple_spread_v3 cooperative environment of PettingZoo MPE (prev OpenAI MPE)
 # https://pettingzoo.farama.org/environments/mpe/simple_spread/
+# Implemented for a parallel environment with continuous actions
 
 # Agents must learn to cover all the landmarks while avoiding collisions.
 # More specifically, all agents are globally rewarded
@@ -19,7 +19,6 @@ from pettingzoo.mpe import simple_spread_v3
 import os
 import argparse
 from typing import List
-import copy
 
 
 class OUActionNoise:
@@ -43,7 +42,7 @@ class OUActionNoise:
 
 
 class MLPNetwork(nn.Module):
-    def __init__(self, input_dim, output_dim, is_actor = False):
+    def __init__(self, input_dim, output_dim, is_actor=False):
         super(MLPNetwork, self).__init__()
         self.is_actor = is_actor
         self.layer1 = nn.Linear(input_dim, 64)
@@ -56,7 +55,7 @@ class MLPNetwork(nn.Module):
         x = nn.functional.relu(self.layer1(input))
         x = nn.functional.relu(self.layer2(x))
         if self.is_actor:
-            output =  torch.sigmoid(self.layer3(x))
+            output = torch.sigmoid(self.layer3(x))
         else:
             output = self.layer3(x)
         return output
@@ -65,9 +64,11 @@ class MLPNetwork(nn.Module):
 class Agent:
     def __init__(self, obs_dim, act_dim, global_dim, actor_lr, critic_lr):
         self.actor = MLPNetwork(obs_dim, act_dim, is_actor=True)
+        self.target_actor = MLPNetwork(obs_dim, act_dim, is_actor=True)
+        self.target_actor.load_state_dict(self.actor.state_dict())
         self.critic = MLPNetwork(global_dim, 1)
-        self.target_actor = copy.deepcopy(self.actor)
-        self.target_critic = copy.deepcopy(self.critic)
+        self.target_critic = MLPNetwork(global_dim, 1)
+        self.target_critic.load_state_dict(self.critic.state_dict())
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=critic_lr)
 
@@ -302,7 +303,14 @@ class MADDPG:
                     action = self.select_action(obs)
 
                 next_obs, reward, term, trunc, _ = self.env.step(action)
-                self.add(obs, action, reward, next_obs, term, trunc)
+                for agent_id in obs.keys():
+                    self.buffers[agent_id].add(
+                        obs[agent_id],
+                        action[agent_id],
+                        reward[agent_id],
+                        next_obs[agent_id],
+                        term[agent_id] or trunc[agent_id],
+                    )
                 obs = next_obs
 
                 for agent_id, r in reward.items():
