@@ -24,5 +24,5 @@ Work done by both till now for project :
 - Studied in-depth about policy based learning, policy gradients and actor-critic methods.
 - Studied and implemented actor-critic RL algorithms : Proximal Policy Optimization (PPO) and Deep Deterministic Policy Gradient (DDPG) using PyTorch, Keras, TensorFlow and Gymnasium libraries.
 - Studied basics of multi-agent deep reinforcement learning.
-- Studied and implemented Multi-Agent Deep SARSA and Multi-Agent Deep Deterministic Policy Gradient (MADDPG) algorithms using Pytorch and PettingZoo libraries.
+- Studied and implemented MARL algorithms : Multi-Agent Deep SARSA and Multi-Agent Deep Deterministic Policy Gradient (MADDPG) using Pytorch and PettingZoo libraries.
 - Studied basics of RL, DL, neural networks and Deep RL.
