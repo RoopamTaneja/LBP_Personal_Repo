@@ -15,7 +15,3 @@ Neural networks :
 6) https://victorzhou.com/series/neural-networks-from-scratch/
 
 7) http://neuralnetworksanddeeplearning.com/
-
-Ideas for optimization:
-
-Using CNNs/ different activation fn/ l2 regularization/ vectorized ops/ depth of network/ gradient clipping/ entropy/ normalization
