@@ -185,7 +185,7 @@ class MADDPG:
             rew_dict[agent_id] = r
             done_dict[agent_id] = d
             # Calculate next actions using target network and next states
-            next_actions = self.agents[agent_id].target_actor(n_o)
+            next_actions = self.agents[agent_id].target_actor(n_o).detach()
             glob_next_act.append(next_actions)
         return (
             obs_dict,
@@ -222,7 +222,7 @@ class MADDPG:
             agent.critic_optimizer.step()
 
             # Update actor
-            act[agent_id] = agent.actor(obs[agent_id])
+            act[agent_id] = agent.actor(obs[agent_id]).detach()
             glob_act = list(act.values())
             q = agent.critic(torch.cat(glob_obs + glob_act, 1)).squeeze(1)
             actor_loss = -q.mean()
@@ -401,7 +401,7 @@ if __name__ == "__main__":
     BATCH_SIZE = 1024
     ACTOR_LR = 0.01
     CRITIC_LR = 0.01
-    NUM_TRAIN_EPISODES = 3000
+    NUM_TRAIN_EPISODES = 30000
     NUM_TEST_EPISODES = 50
     EPISODE_LENGTH = 25
 
