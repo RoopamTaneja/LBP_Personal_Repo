@@ -1,8 +1,27 @@
-Distributed Energy-Efficient Multi-UAV Navigation for Long-Term Communication Coverage by Deep Reinforcement Learning : Chi Harold Liu , Senior Member, IEEE, Xiaoxin Ma, Xudong Gao, and Jian Tang , Fellow, IEEE
+- **Key paper** : Distributed Energy-Efficient Multi-UAV Navigation for Long-Term Communication Coverage by Deep Reinforcement Learning : Chi Harold Liu , Senior Member, IEEE, Xiaoxin Ma, Xudong Gao, and Jian Tang , Fellow, IEEE
 
-https://github.com/BIT-MCS/DRL-EC3
+- Energy-Efficient UAV Control for Effective and Fair Communication Coverage: A Deep Reinforcement Learning Approach : Chi Harold Liu , Senior Member, IEEE, Zheyu Chen, Jian Tang , Senior Member, IEEE, Jie Xu, and Chengzhe Piao
 
-Energy-Efficient UAV Control for Effective and Fair Communication Coverage: A Deep Reinforcement Learning Approach : Chi Harold Liu , Senior Member, IEEE, Zheyu Chen, Jian Tang , Senior Member, IEEE, Jie Xu, and Chengzhe Piao
+- [Github](https://github.com/BIT-MCS/DRL-EC3)
+
+**Pending**:
+
+- Understanding code and verifying it is actually implementing MADDPG in CTDE paradigm or not.
+- Removing dependency conflicts and running code in correct python version and tf version.
+- Understanding how the environment is operating.
+- Understanding use of images and why is CNN/RNN included in code.
+
+Note : Including this line in the python file you are executing may be helpful : `sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))`
+
+**My summary of above papers** : First for 2nd paper which is more basic, after that for 1st paper.
+
+![](paper-1.jpg)
+
+![](paper-2.jpg)
+
+![](paper-3.jpg)
+
+![](paper-4.jpg)
 
 **More info related to above** :
 
@@ -21,7 +40,7 @@ the UAV in making decisions and providing high-quality services for the UAV netw
 Moreover, the DDPG has the ability to deal with unknown environments and emergency
 scenarios, and it enhances the robustness and reduces the calculation cost of the UAVs.
 
-distributed drl-ec3 : ![](image-4.png)
+DRL-EC3 :  Objective -> Maximize energy efficiency; 2D model; Reward : Coverage score, fairness index and energy consumption; For 5 to 10 UAVs
 
 ![](image.png)
 
@@ -30,3 +49,5 @@ distributed drl-ec3 : ![](image-4.png)
 ![](image-2.png)
 
 ![](image-3.png)
+
+---
