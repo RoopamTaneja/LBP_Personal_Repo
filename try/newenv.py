@@ -12,7 +12,7 @@ wall_width = 4
 wall_value = -1
 channel = 3
 num_uavs = 6
-init_position = (8, 8)
+init_positions = [[4, 4], [12, 4], [4, 12], [12, 12], [8, 8], [8, 4]]
 max_energy = 500
 num_action = 2
 comm_range = 1.1
@@ -32,7 +32,7 @@ class Env:
         self.map_width = map_width
         self.map_height = map_height
         self.width = grid_width
-        self.height = grid_width
+        self.height = grid_height
         self.channel = channel
         self.img_path = log_dir
         if not os.path.exists(self.img_path):
@@ -55,6 +55,7 @@ class Env:
         self.normalize = normalize
         self.max_steps = 1000
         self.log_freq = 100
+        self.dn = [False] * self.num_uavs  # UAVs with depleted energy
 
         # Reward parameters
         self.pwall = wall_penalty
@@ -77,17 +78,20 @@ class Env:
 
         # Draw initial UAV positions
         for i_n in range(self.num_uavs):
-            self._draw_UAV(init_position[0], init_position[1], 1.0, self._init_position_map[i_n])
+            self._draw_UAV(init_positions[i_n][0], init_positions[i_n][1], 1.0, self._init_position_map[i_n])
 
     def _transform_coords(self, x, y):
         """Transform logical coordinates to visual coordinates"""
         return int(4 * x + wall_width * 2), int(4 * y + wall_width * 2)
 
-    def _draw_square(self, x, y, width, height, value, grid):
+    def _draw_square(self, x, y, width, height, value, grid, add = False):
         for i in range(x, x + width):
             for j in range(y, y + height):
                 if 0 <= i < self.width and 0 <= j < self.height:
-                    grid[i][j] = value
+                    if add:
+                        grid[i][j] += value
+                    else:
+                        grid[i][j] = value
 
     def _draw_wall(self, grid):
         for j in range(self.height):
@@ -103,7 +107,7 @@ class Env:
 
     def _draw_data_point(self, x, y, value, grid):
         x, y = self._transform_coords(x, y)
-        self._draw_square(x, y, 2, 2, value, grid)
+        self._draw_square(x, y, 2, 2, value, grid, add=True)
 
     def _draw_UAV(self, x, y, value, grid):
         x, y = self._transform_coords(x, y)
@@ -117,16 +121,25 @@ class Env:
         x, y = self._transform_coords(x, y)
         self._draw_square(x, y, 4, 4, 0, grid)
 
-    def save_image(self,name=None):
-        grid = self.image_data
+    def save_image(self, name=None, include_uavs=True):
+        grid = self.image_data.copy()
         if np.min(grid) < 0:
-            normalized = ((grid + 1) * 127.5).clip(0, 255).astype(np.uint8) # Normalize from [-1,1] to [0,255]
-        else:
-            normalized = (grid * 255).clip(0, 255).astype(np.uint8) # Normalize from [0,1] to [0,255]
-        img = Image.fromarray(normalized)
-        img = img.convert("L")
+            # Map from [-1,1] to [0,1]
+            grid = (grid + 1) / 2
+        rgb_img = np.stack([grid, grid, grid], axis=2)
+        if include_uavs:
+            colors = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 1.0, 0.0], [0.0, 1.0, 1.0], [1.0, 0.0, 1.0]]
+            for i, pos in enumerate(self.uav_pos):
+                x, y = self._transform_coords(pos[0], pos[1])
+                color = colors[i % len(colors)]
+                for dx in range(4):
+                    for dy in range(4):
+                        if 0 <= x + dx < self.width and 0 <= y + dy < self.height:
+                            rgb_img[x + dx, y + dy] = color
+        img = (rgb_img * 255).clip(0, 255).astype(np.uint8)
+        img = Image.fromarray(img, "RGB")
         if name is None:
-            name = "initial_data_distribution"
+            name = "initial_state"
         img.save(os.path.join(self.img_path, f"{name}.png"), "png")
 
     def set_initial_state(self, initial_state):
@@ -177,7 +190,8 @@ class Env:
 
         # If we found fewer UAVs than expected, add default positions
         while len(uav_positions) < self.num_uavs:
-            uav_positions.append(list(init_position))
+            idx = len(uav_positions) % len(init_positions)
+            uav_positions.append(list(init_positions[idx]))
 
         # Update initial UAV positions
         self._init_position_map = np.zeros((self.num_uavs, self.width, self.height)).astype(np.float16)
@@ -203,23 +217,26 @@ class Env:
             image = np.zeros((self.width, self.height, self.channel)).astype(np.float16)
             image[:, :, 0] = self.image_data
             image[:, :, 1] = self.image_position[i]
-            image[:, :, 2] = self.image_track[i]
+            # image[:, :, 2] is already initialized to zeros
             state.append(image)
-        self.save_image()
-        return state
+        self.state = state
 
     def __update_state(self, clear_uav, update_point, update_track):
         """Update state representation after UAV movements and data collection"""
         for n in range(self.num_uavs):
             # Update data points (channel 0)
             for i, value in update_point:
+                self._clear_data_point(self.datas[i][0], self.datas[i][1], self.state[n][:, :, 0])
+            for i, value in update_point:
                 self._draw_data_point(self.datas[i][0], self.datas[i][1], value, self.state[n][:, :, 0])
 
             # Update UAV positions (channel 1)
             self._clear_uav(clear_uav[n][0], clear_uav[n][1], self.state[n][:, :, 1])
-            self._draw_UAV(self.uav[n][0], self.uav[n][1], self.energy[n] / self.maxenergy, self.state[n][:, :, 1])
+            self._draw_UAV(self.uav_pos[n][0], self.uav_pos[n][1], self.energy[n] / self.maxenergy, self.state[n][:, :, 1])
 
             # Update track information (channel 2)
+            for i, value in update_track:
+                self._clear_data_point(self.datas[i][0], self.datas[i][1], self.state[n][:, :, 2])
             for i, value in update_track:
                 self._draw_data_point(self.datas[i][0], self.datas[i][1], value, self.state[n][:, :, 2])
 
@@ -243,7 +260,7 @@ class Env:
     def __get_efficiency(self, value, distance):
         """Calculate efficiency of data collection"""
         return value / (distance + self.alpha * value + self.epsilon)
-    
+
     @property
     def leftrewards(self):
         """Proportion of data remaining to be collected"""
@@ -288,7 +305,6 @@ class Env:
         fairness = square_of_sum / sum_of_square / float(len(collection))
         return fairness
 
-
     def step(self, actions):
         """Process one step of the environment given agent actions"""
         action = copy.deepcopy(actions)
@@ -300,10 +316,9 @@ class Env:
 
         # Initialize step variables
         reward = [0] * self.num_uavs
-        self.dn = [False] * self.num_uavs  # UAVs with depleted energy
         update_points = []
         update_tracks = []
-        clear_uav = copy.copy(self.uav)
+        clear_uav = copy.copy(self.uav_pos)
         new_positions = []
 
         # Calculate initial fairness
@@ -313,9 +328,8 @@ class Env:
         for i in range(self.num_uavs):
             # Record trajectory
             if self.dn[i]:
-                new_positions.append(self.uav[i])
+                new_positions.append(self.uav_pos[i])
                 continue
-            self.trace[i].append(self.uav[i])
 
             # Action[0] is angle in radians (scaled from [-1,1] to [0,2π])
             # Action[1] is distance ratio (scaled from [-1,1] to [0,1])
@@ -330,15 +344,15 @@ class Env:
             delta_y = int(distance * np.sin(angle))
             data = 0
 
-            new_x = self.uav[i][0] + delta_x
-            new_y = self.uav[i][1] + delta_y
+            new_x = self.uav_pos[i][0] + delta_x
+            new_y = self.uav_pos[i][1] + delta_y
 
             # Check boundary constraints
             if 0 <= new_x < self.map_width and 0 <= new_y < self.map_height:
                 new_positions.append([new_x, new_y])
             else:
                 # Stay in place and apply wall penalty
-                new_positions.append([self.uav[i][0], self.uav[i][1]])
+                new_positions.append([self.uav_pos[i][0], self.uav_pos[i][1]])
                 reward[i] += self.normalize * self.pwall
                 self.wall_collisions[i] += 1
 
@@ -385,7 +399,7 @@ class Env:
                 self.dn[i] = True
 
         # Update UAV positions
-        self.uav = new_positions
+        self.uav_pos = new_positions
 
         # Update state representation
         self.__update_state(clear_uav, update_points, update_tracks)
@@ -405,7 +419,7 @@ class Env:
         comm_penalties = np.zeros(self.num_uavs)
         for i in range(self.num_uavs):
             for j in range(i + 1, self.num_uavs):
-                dist = np.sqrt(np.sum(np.power(np.array(self.uav[i]) - np.array(self.uav[j]), 2)))
+                dist = np.sqrt(np.sum(np.power(np.array(self.uav_pos[i]) - np.array(self.uav_pos[j]), 2)))
                 if dist > self.comm_range:
                     comm_penalties[i] += 0.1
                     comm_penalties[j] += 0.1
@@ -414,7 +428,7 @@ class Env:
 
         # Return state, done flag, reward, and metrics
         return (copy.deepcopy(self.state), done, reward, (coverage, fairness, energy_efficiency, comm_penalties))
-    
+
     def reset(self):
         """Reset environment to initial state for a new episode"""
         # Reset data matrix and tracking
@@ -422,19 +436,21 @@ class Env:
         self.maptrack = np.zeros(self.mapmatrix.shape)
 
         # Reset UAV positions and stats
-        self.uav = [list(init_position) for i in range(self.num_uavs)]
+        self.uav_pos = copy.deepcopy(init_positions)
         self.eff = [0.0] * self.num_uavs
-        self.trace = [[] for _ in range(self.num_uavs)]
 
         # Reset energy and performance indicators
         self.energy = np.ones(self.num_uavs).astype(np.float64) * self.maxenergy
         self.collection = np.zeros(self.num_uavs).astype(np.float16)
         self.wall_collisions = np.zeros(self.num_uavs).astype(np.int16)
+        self.dn = [False] * self.num_uavs 
 
         # Initialize images and state representation
-        self.state = self.__init_state()
+        self.__init_state()
         return copy.deepcopy(self.state)
-    
+
+
 if __name__ == "__main__":
     env = Env()
     env.reset()
+    # env.save_image()
