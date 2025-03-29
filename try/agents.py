@@ -15,7 +15,7 @@ class ActorNetwork(nn.Module):
     def forward(self, obs):
         x = F.relu(self.fc1(obs))
         x = F.relu(self.fc2(x))
-        action = torch.tanh(self.out(x))  # action ∈ [-1, 1]
+        action = torch.tanh(self.out(x))
         return action
 
 

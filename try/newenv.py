@@ -20,7 +20,7 @@ max_distance = 1.0
 collection_prop = 0.2
 wall_penalty = -1.0
 data_reward = 1.0
-waste_step = -0.5
+waste_step_penalty = -0.5
 alpha = 1.0
 epsilon = 1e-4
 normalize = 0.1
@@ -59,7 +59,7 @@ class Env:
         # Reward parameters
         self.pwall = wall_penalty
         self.rdata = data_reward
-        self.pstep = waste_step
+        self.pstep = waste_step_penalty
 
         # Initialize data points from test_data module
         self.DATAs = np.reshape(test_data, (-1, 3)).astype(np.float16)
@@ -73,7 +73,7 @@ class Env:
         # Draw walls and data points on data map
         self._draw_wall(self._init_data_map)
         for i, position in enumerate(self.datas):
-            self._draw_point(position[0], position[1], self._mapmatrix[i], self._init_data_map)
+            self._draw_data_point(position[0], position[1], self._mapmatrix[i], self._init_data_map)
 
         # Draw initial UAV positions
         for i_n in range(self.num_uavs):
@@ -101,11 +101,15 @@ class Env:
             for j in range(self.height - wall_width, self.height):
                 grid[i][j] = wall_value
 
-    def _draw_point(self, x, y, value, grid):
+    def _draw_data_point(self, x, y, value, grid):
         x, y = self._transform_coords(x, y)
         self._draw_square(x, y, 2, 2, value, grid)
 
-    def _clear_point(self, x, y, grid):
+    def _draw_UAV(self, x, y, value, grid):
+        x, y = self._transform_coords(x, y)
+        self._draw_square(x, y, 4, 4, value, grid)
+
+    def _clear_data_point(self, x, y, grid):
         x, y = self._transform_coords(x, y)
         self._draw_square(x, y, 2, 2, 0, grid)
 
@@ -113,38 +117,17 @@ class Env:
         x, y = self._transform_coords(x, y)
         self._draw_square(x, y, 4, 4, 0, grid)
 
-    def _draw_UAV(self, x, y, value, grid):
-        x, y = self._transform_coords(x, y)
-        self._draw_square(x, y, 4, 4, value, grid)
-
-    def save_image(self, grid, name=None):
-        img = Image.fromarray(grid * 255)
+    def save_image(self,name=None):
+        grid = self.image_data
+        if np.min(grid) < 0:
+            normalized = ((grid + 1) * 127.5).clip(0, 255).astype(np.uint8) # Normalize from [-1,1] to [0,255]
+        else:
+            normalized = (grid * 255).clip(0, 255).astype(np.uint8) # Normalize from [0,1] to [0,255]
+        img = Image.fromarray(normalized)
         img = img.convert("L")
-
         if name is None:
-            name = "starting_image"
-
+            name = "initial_data_distribution"
         img.save(os.path.join(self.img_path, f"{name}.png"), "png")
-
-    def reset(self):
-        """Reset environment to initial state for a new episode"""
-        # Reset data matrix and tracking
-        self.mapmatrix = copy.copy(self._mapmatrix)
-        self.maptrack = np.zeros(self.mapmatrix.shape)
-
-        # Reset UAV positions and stats
-        self.uav = [list(init_position) for i in range(self.num_uavs)]
-        self.eff = [0.0] * self.num_uavs
-        self.trace = [[] for _ in range(self.num_uavs)]
-
-        # Reset energy and performance indicators
-        self.energy = np.ones(self.num_uavs).astype(np.float64) * self.maxenergy
-        self.collection = np.zeros(self.num_uavs).astype(np.float16)
-        self.wall_collisions = np.zeros(self.num_uavs).astype(np.int16)
-
-        # Initialize images and state representation
-        self.state = self.__init_state()
-        return copy.deepcopy(self.state)
 
     def set_initial_state(self, initial_state):
         """
@@ -222,7 +205,7 @@ class Env:
             image[:, :, 1] = self.image_position[i]
             image[:, :, 2] = self.image_track[i]
             state.append(image)
-        # self._save_as_png(self.image_data, ip="init_map")
+        self.save_image()
         return state
 
     def __update_state(self, clear_uav, update_point, update_track):
@@ -230,7 +213,7 @@ class Env:
         for n in range(self.num_uavs):
             # Update data points (channel 0)
             for i, value in update_point:
-                self._draw_point(self.datas[i][0], self.datas[i][1], value, self.state[n][:, :, 0])
+                self._draw_data_point(self.datas[i][0], self.datas[i][1], value, self.state[n][:, :, 0])
 
             # Update UAV positions (channel 1)
             self._clear_uav(clear_uav[n][0], clear_uav[n][1], self.state[n][:, :, 1])
@@ -238,7 +221,7 @@ class Env:
 
             # Update track information (channel 2)
             for i, value in update_track:
-                self._draw_point(self.datas[i][0], self.datas[i][1], value, self.state[n][:, :, 2])
+                self._draw_data_point(self.datas[i][0], self.datas[i][1], value, self.state[n][:, :, 2])
 
     def __get_reward(self, value, distance, fairness, fairness_):
         """Calculate reward based on data collected, distance moved, and fairness"""
@@ -260,6 +243,51 @@ class Env:
     def __get_efficiency(self, value, distance):
         """Calculate efficiency of data collection"""
         return value / (distance + self.alpha * value + self.epsilon)
+    
+    @property
+    def leftrewards(self):
+        """Proportion of data remaining to be collected"""
+        return np.sum(self.mapmatrix) / self.totaldata
+
+    @property
+    def efficiency(self):
+        """Overall efficiency of the data collection process"""
+        active_uavs = self.num_uavs - np.sum(self.normal_energy)
+        if active_uavs == 0:
+            return 0
+        return np.sum(self.collection / self.totaldata) / active_uavs * self.collection_fairness
+
+    @property
+    def normal_energy(self):
+        """Normalized energy levels for all UAVs"""
+        return list(np.array(self.energy) / self.maxenergy)
+
+    @property
+    def fairness(self):
+        """Fairness of remaining data distribution"""
+        square_of_sum = np.square(np.sum(self.mapmatrix[:]))
+        sum_of_square = np.sum(np.square(self.mapmatrix[:]))
+        if sum_of_square == 0:
+            return 1.0
+        return square_of_sum / sum_of_square / float(len(self.mapmatrix))
+
+    @property
+    def collection_fairness(self):
+        """Normalized fairness of data collection (proportional to original values)"""
+        collection = self._mapmatrix - self.mapmatrix
+        # Normalize each collected value by the original data point value
+        for index, i in enumerate(collection):
+            if self._mapmatrix[index] > 0:
+                collection[index] = i / self._mapmatrix[index]
+            else:
+                collection[index] = 0
+        square_of_sum = np.square(np.sum(collection))
+        sum_of_square = np.sum(np.square(collection))
+        if sum_of_square == 0:
+            return 0.0
+        fairness = square_of_sum / sum_of_square / float(len(collection))
+        return fairness
+
 
     def step(self, actions):
         """Process one step of the environment given agent actions"""
@@ -386,47 +414,27 @@ class Env:
 
         # Return state, done flag, reward, and metrics
         return (copy.deepcopy(self.state), done, reward, (coverage, fairness, energy_efficiency, comm_penalties))
+    
+    def reset(self):
+        """Reset environment to initial state for a new episode"""
+        # Reset data matrix and tracking
+        self.mapmatrix = copy.copy(self._mapmatrix)
+        self.maptrack = np.zeros(self.mapmatrix.shape)
 
-    @property
-    def leftrewards(self):
-        """Proportion of data remaining to be collected"""
-        return np.sum(self.mapmatrix) / self.totaldata
+        # Reset UAV positions and stats
+        self.uav = [list(init_position) for i in range(self.num_uavs)]
+        self.eff = [0.0] * self.num_uavs
+        self.trace = [[] for _ in range(self.num_uavs)]
 
-    @property
-    def efficiency(self):
-        """Overall efficiency of the data collection process"""
-        active_uavs = self.num_uavs - np.sum(self.normal_energy)
-        if active_uavs == 0:
-            return 0
-        return np.sum(self.collection / self.totaldata) / active_uavs * self.collection_fairness
+        # Reset energy and performance indicators
+        self.energy = np.ones(self.num_uavs).astype(np.float64) * self.maxenergy
+        self.collection = np.zeros(self.num_uavs).astype(np.float16)
+        self.wall_collisions = np.zeros(self.num_uavs).astype(np.int16)
 
-    @property
-    def normal_energy(self):
-        """Normalized energy levels for all UAVs"""
-        return list(np.array(self.energy) / self.maxenergy)
-
-    @property
-    def fairness(self):
-        """Fairness of remaining data distribution"""
-        square_of_sum = np.square(np.sum(self.mapmatrix[:]))
-        sum_of_square = np.sum(np.square(self.mapmatrix[:]))
-        if sum_of_square == 0:
-            return 1.0
-        return square_of_sum / sum_of_square / float(len(self.mapmatrix))
-
-    @property
-    def collection_fairness(self):
-        """Normalized fairness of data collection (proportional to original values)"""
-        collection = self._mapmatrix - self.mapmatrix
-        # Normalize each collected value by the original data point value
-        for index, i in enumerate(collection):
-            if self._mapmatrix[index] > 0:
-                collection[index] = i / self._mapmatrix[index]
-            else:
-                collection[index] = 0
-        square_of_sum = np.square(np.sum(collection))
-        sum_of_square = np.sum(np.square(collection))
-        if sum_of_square == 0:
-            return 0.0
-        fairness = square_of_sum / sum_of_square / float(len(collection))
-        return fairness
+        # Initialize images and state representation
+        self.state = self.__init_state()
+        return copy.deepcopy(self.state)
+    
+if __name__ == "__main__":
+    env = Env()
+    env.reset()
