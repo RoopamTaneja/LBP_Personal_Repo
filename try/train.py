@@ -34,7 +34,7 @@ def train(use_image_init=False, image_path=None):
     for episode in range(1, num_episodes + 1):
         obs = env.reset()  # shape: (num_agents, obs_dim)
         maddpg.reset_noise()
-        # To stored step details for each episode
+
         step = 0
         episode_reward = 0
         score_log = {"coverage": [], "fairness": [], "energy_efficiency": [], "penalty_per_uav": []}
@@ -43,22 +43,20 @@ def train(use_image_init=False, image_path=None):
             # Each agent selects action based on local observation
             actions = maddpg.select_action(obs)  # shape: (num_agents, action_dim)
             # Step the environment
-            next_obs, done, reward_per_uav, (cov, fair, energy_eff, comm_per_uav) = env.step(actions)
+            next_obs, done, rewards, (cov, fair, energy_eff, penalty) = env.step(actions)
 
             # Store log scores per step
             score_log["coverage"].append(cov)
             score_log["fairness"].append(fair)
             score_log["energy_efficiency"].append(energy_eff)
-            score_log["comm_penalty_per_uav"].append(comm_per_uav)
+            score_log["penalty_per_uav"].append(penalty)
 
-            # Prepare reward and done per agent (even if shared reward)
-            rewards = np.copy(reward_per_uav)
             dones = np.full((num_agents,), done)
 
             # Store experience in buffer
             maddpg.store(obs, actions, rewards, next_obs, dones)
 
-            # Train MADDPG - Perform centralized critic + decentralized actor update
+            # Update MADDPG agents
             maddpg.update(batch_size)
 
             obs = next_obs
@@ -67,27 +65,19 @@ def train(use_image_init=False, image_path=None):
                 break
 
         # Store rewards and scores per episode
-        episode_rewards.append(episode_reward / step)
+        episode_rewards.append(episode_reward)
         score_log_per_episode["coverage"].append(np.mean(score_log["coverage"]))
         score_log_per_episode["fairness"].append(np.mean(score_log["fairness"]))
         score_log_per_episode["energy_efficiency"].append(np.mean(score_log["energy_efficiency"]))
-        score_log_per_episode["comm_penalty_per_uav"].append(np.mean(np.stack(score_log["comm_penalty_per_uav"], axis=0), axis=0))
+        score_log_per_episode["penalty_per_uav"].append(np.mean(np.stack(score_log["penalty_per_uav"], axis=0), axis=0))
 
         # Logging
         if episode % log_freq == 0:
             elapsed_time = time.time() - start_time
             env.save_image(f"state_epi_{episode}")
-            comm_penalty_avg_per_uav = np.mean(np.stack(score_log_per_episode["comm_penalty_per_uav"][-log_freq:], axis=0), axis=0)
-            comm_penalty_avg_per_uav = np.round(comm_penalty_avg_per_uav, decimals=3)
-            print(f"🔄 Episode {episode} | " f"Total Reward: {np.mean(episode_rewards[-log_freq:]):.3f} | " f"Coverage Avg: {np.mean(score_log_per_episode['coverage'][-log_freq:]):.3f} | " f"Fairness Avg: {np.mean(score_log_per_episode['fairness'][-log_freq:]):.3f} | " f"Energy Efficiency Avg: {np.mean(score_log_per_episode['energy_efficiency'][-log_freq:]):.3f} | " f"Comm Penalty Avg: {comm_penalty_avg_per_uav} | " f"Elapsed Time: {elapsed_time:.2f}s")
-
-        # LOGGING
-        # # End of episode handling
-        #     if done or terminal:
-        #         # Report episode results
-        #         efficiency = env.efficiency
-        #         log.draw_path(env, iteration, meaningful_fill, meaningful_get)
-        #         iteration += 1
+            penalty_avg= np.mean(np.stack(score_log_per_episode["penalty_per_uav"][-log_freq:], axis=0), axis=0)
+            penalty_avg = np.round(penalty_avg, decimals=3)
+            print(f"🔄 Episode {episode} | " f"Total Reward: {np.mean(episode_rewards[-log_freq:]):.3f} | " f"Coverage Avg: {np.mean(score_log_per_episode['coverage'][-log_freq:]):.3f} | " f"Fairness Avg: {np.mean(score_log_per_episode['fairness'][-log_freq:]):.3f} | " f"Energy Efficiency Avg: {np.mean(score_log_per_episode['energy_efficiency'][-log_freq:]):.3f} | " f"Penalty Avg: {penalty_avg} | " f"Elapsed Time: {elapsed_time:.2f}s")
 
     print("\n✅ Training Completed!\n")
 
