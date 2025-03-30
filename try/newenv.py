@@ -49,8 +49,8 @@ class Env:
         self.max_dist = max_distance
         self.collect_ratio = np.float16(collect_ratio)
         self.alpha = alpha  # Energy needed per unit data collected
-        self.factor = factor # Energy needed per unit distance moved
-        self.epsilon = epsilon # A small value for reference
+        self.factor = factor  # Energy needed per unit distance moved
+        self.epsilon = epsilon  # A small value for reference
         self.normalize = normalize
         self.max_steps = 1000
         self.log_freq = 100
@@ -58,18 +58,19 @@ class Env:
         self.p_wall = wall_penalty
 
         # Initialize data points from test_data module
-        self.DATAs = np.reshape(test_data, (-1, 3)).astype(np.float16)
-        self._mapmatrix = copy.copy(self.DATAs[:, 2])
-        self.totaldata = np.sum(self._mapmatrix)
+        self.DATAs = np.reshape(test_data, (-1, 2)).astype(np.float16)
         self.datas = self.DATAs[:, 0:2] * map_width
+        self.total_points = len(self.datas)
+        self.coverage_map = np.zeros(len(self.datas), dtype=bool)
+        self.visit_count = np.zeros(len(self.datas), dtype=np.int16)
 
         self._init_data_map = np.zeros((self.width, self.height)).astype(np.float16)
         self._init_position_map = np.zeros((num_uavs, self.width, self.height)).astype(np.float16)
 
         # Draw walls and data points on data map
         self._draw_wall(self._init_data_map)
-        for i, position in enumerate(self.datas):
-            self._draw_data_point(position[0], position[1], self._mapmatrix[i], self._init_data_map)
+        for pos in self.datas:
+            self._draw_data_point(pos[0], pos[1], self._init_data_map)
 
         # Draw initial UAV positions
         for i_n in range(self.num_uavs):
@@ -100,9 +101,9 @@ class Env:
             for j in range(self.height - wall_width, self.height):
                 grid[i][j] = wall_value
 
-    def _draw_data_point(self, x, y, value, grid):
+    def _draw_data_point(self, x, y, grid):
         x, y = self._transform_coords(x, y)
-        self._draw_square(x, y, 2, 2, value, grid, add=True)
+        self._draw_square(x, y, 2, 2, 1.0, grid, add=True)
 
     def _draw_UAV(self, x, y, value, grid):
         x, y = self._transform_coords(x, y)
@@ -118,8 +119,9 @@ class Env:
 
     def save_image(self, name=None, include_uavs=True):
         grid = self.image_data.copy()
-        if np.min(grid) < 0:  # Map from [-1,1] to [0,1]
-            grid = (grid + 1) / 2
+        max_value = np.max(grid)
+        if max_value > 0: # Normalize grid to [0, 1] range
+            grid = grid / max_value
         rgb_img = np.stack([grid, grid, grid], axis=2)
         if include_uavs:
             colors = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 1.0, 0.0], [0.0, 1.0, 1.0], [1.0, 0.0, 1.0]]
@@ -136,68 +138,68 @@ class Env:
             name = "initial_state"
         img.save(os.path.join(self.img_path, f"{name}.png"), "png")
 
-    def set_initial_state(self, initial_state):
-        """
-        Set the initial state of the environment from an image-processed grid representation
-        """
-        # Validate input shape
-        if initial_state.shape[0] != self.width or initial_state.shape[1] != self.height or initial_state.shape[2] != self.channel:
-            raise ValueError(f"Expected state shape ({self.width}, {self.height}, {self.channel}), " f"got {initial_state.shape}")
+    # def set_initial_state(self, initial_state):
+    #     """
+    #     Set the initial state of the environment from an image-processed grid representation
+    #     """
+    #     # Validate input shape
+    #     if initial_state.shape[0] != self.width or initial_state.shape[1] != self.height or initial_state.shape[2] != self.channel:
+    #         raise ValueError(f"Expected state shape ({self.width}, {self.height}, {self.channel}), " f"got {initial_state.shape}")
 
-        # Extract obstacle/wall information from channel 0
-        self._image_data = initial_state[:, :, 0].astype(np.float16)
+    #     # Extract obstacle/wall information from channel 0
+    #     self._image_data = initial_state[:, :, 0].astype(np.float16)
 
-        # Process DATAs based on the data points in the image
-        # Find data points in the image (based on threshold)
-        data_points = []
-        data_values = []
+    #     # Process DATAs based on the data points in the image
+    #     # Find data points in the image (based on threshold)
+    #     data_points = []
+    #     data_values = []
 
-        # Extract data points from the image (channel 2)
-        data_mask = initial_state[:, :, 2] > 0.5  # Threshold for data points
+    #     # Extract data points from the image (channel 2)
+    #     data_mask = initial_state[:, :, 2] > 0.5  # Threshold for data points
 
-        y_indices, x_indices = np.where(data_mask)
-        for i in range(len(y_indices)):
-            x, y = x_indices[i], y_indices[i]
-            data_points.append([x, y])
-            data_values.append(initial_state[y, x, 2])
+    #     y_indices, x_indices = np.where(data_mask)
+    #     for i in range(len(y_indices)):
+    #         x, y = x_indices[i], y_indices[i]
+    #         data_points.append([x, y])
+    #         data_values.append(initial_state[y, x, 2])
 
-        # Update internal data structures
-        self.datas = np.array(data_points).astype(np.float16)
-        self._mapmatrix = np.array(data_values).astype(np.float16)
-        self.totaldata = np.sum(self._mapmatrix)
+    #     # Update internal data structures
+    #     self.datas = np.array(data_points).astype(np.float16)
+    #     self._mapmatrix = np.array(data_values).astype(np.float16)
+    #     self.totaldata = np.sum(self._mapmatrix)
 
-        # Update DATAs for consistency
-        self.DATAs = np.zeros((len(data_points), 3)).astype(np.float16)
-        self.DATAs[:, 0:2] = self.datas / self.map_width  # Normalize coordinates
-        self.DATAs[:, 2] = self._mapmatrix
+    #     # Update DATAs for consistency
+    #     self.DATAs = np.zeros((len(data_points), 3)).astype(np.float16)
+    #     self.DATAs[:, 0:2] = self.datas / self.map_width  # Normalize coordinates
+    #     self.DATAs[:, 2] = self._mapmatrix
 
-        # Extract UAV positions from channel 1
-        uav_positions = []
+    #     # Extract UAV positions from channel 1
+    #     uav_positions = []
 
-        # Find UAV positions in the image (based on threshold)
-        uav_mask = initial_state[:, :, 1] > 0.5  # Threshold for UAV positions
+    #     # Find UAV positions in the image (based on threshold)
+    #     uav_mask = initial_state[:, :, 1] > 0.5  # Threshold for UAV positions
 
-        y_indices, x_indices = np.where(uav_mask)
-        for i in range(min(len(y_indices), self.num_uavs)):
-            x, y = x_indices[i], y_indices[i]
-            uav_positions.append([x, y])
+    #     y_indices, x_indices = np.where(uav_mask)
+    #     for i in range(min(len(y_indices), self.num_uavs)):
+    #         x, y = x_indices[i], y_indices[i]
+    #         uav_positions.append([x, y])
 
-        # If we found fewer UAVs than expected, add default positions
-        while len(uav_positions) < self.num_uavs:
-            idx = len(uav_positions) % len(init_positions)
-            uav_positions.append(list(init_positions[idx]))
+    #     # If we found fewer UAVs than expected, add default positions
+    #     while len(uav_positions) < self.num_uavs:
+    #         idx = len(uav_positions) % len(init_positions)
+    #         uav_positions.append(list(init_positions[idx]))
 
-        # Update initial UAV positions
-        self._init_position_map = np.zeros((self.num_uavs, self.width, self.height)).astype(np.float16)
+    #     # Update initial UAV positions
+    #     self._init_position_map = np.zeros((self.num_uavs, self.width, self.height)).astype(np.float16)
 
-        for i, pos in enumerate(uav_positions):
-            if i < self.num_uavs:
-                self._draw_UAV(pos[0], pos[1], 1.0, self._init_position_map[i])
+    #     for i, pos in enumerate(uav_positions):
+    #         if i < self.num_uavs:
+    #             self._draw_UAV(pos[0], pos[1], 1.0, self._init_position_map[i])
 
-        # Rebuild the initial state images
-        self.__init_state()
-        print(f"Environment initialized from image: {len(data_points)} data points, {len(uav_positions)} UAV positions")
-        return copy.deepcopy(self.state)
+    #     # Rebuild the initial state images
+    #     self.__init_state()
+    #     print(f"Environment initialized from image: {len(data_points)} data points, {len(uav_positions)} UAV positions")
+    #     return copy.deepcopy(self.state)
 
     def __init_state(self):
         """Initialize image representation for each UAV"""
@@ -240,14 +242,11 @@ class Env:
         coverage = np.sum(maptrack) / len(maptrack)
         return fairness * coverage / (energy_consumed + self.epsilon)
 
-
     def __get_reward(self, new_maptrack, old_maptrack, energy_consumed):
         """Calculate reward"""
         fairness = self.__get_fairness(new_maptrack)
-        coverage_incr = np.sum(new_maptrack - old_maptrack)/len(new_maptrack)
+        coverage_incr = np.sum(new_maptrack - old_maptrack) / len(new_maptrack)
         return fairness * coverage_incr / (energy_consumed + self.epsilon)
-    
-
 
     # def __get_reward(self, value, distance, fairness, fairness_):
     #     """Calculate reward based on data collected, distance moved, and fairness"""
@@ -265,55 +264,6 @@ class Env:
             return 0.0
         jain_fairness_index = square_of_sum / (sum_of_square * float(len(values)))
         return jain_fairness_index
-
-    # def __get_efficiency(self, value, distance):
-    #     """Calculate efficiency of data collection"""
-    #     return value / (distance + self.alpha * value + self.epsilon)
-
-    # @property
-    # def leftrewards(self):
-    #     """Proportion of data remaining to be collected"""
-    #     return np.sum(self.mapmatrix) / self.totaldata
-
-    # @property
-    # def efficiency(self):
-
-    #     """Overall efficiency of the data collection process"""
-    #     active_uavs = self.num_uavs - np.sum(self.normal_energy)
-    #     if active_uavs == 0:
-    #         return 0
-    #     return np.sum(self.collection / self.totaldata) / active_uavs * self.collection_fairness
-
-    # @property
-    # def normal_energy(self):
-    #     """Normalized energy levels for all UAVs"""
-    #     return list(np.array(self.energy) / self.max_energy)
-
-    # @property
-    # def fairness(self):
-    #     """Fairness of remaining data distribution"""
-    #     square_of_sum = np.square(np.sum(self.mapmatrix[:]))
-    #     sum_of_square = np.sum(np.square(self.mapmatrix[:]))
-    #     if sum_of_square == 0:
-    #         return 1.0
-    #     return square_of_sum / sum_of_square / float(len(self.mapmatrix))
-
-    # @property
-    # def collection_fairness(self):
-    #     """Normalized fairness of data collection (proportional to original values)"""
-    #     collection = self._mapmatrix - self.mapmatrix
-    #     # Normalize each collected value by the original data point value
-    #     for index, i in enumerate(collection):
-    #         if self._mapmatrix[index] > 0:
-    #             collection[index] = i / self._mapmatrix[index]
-    #         else:
-    #             collection[index] = 0
-    #     square_of_sum = np.square(np.sum(collection))
-    #     sum_of_square = np.sum(np.square(collection))
-    #     if sum_of_square == 0:
-    #         return 0.0
-    #     fairness = square_of_sum / sum_of_square / float(len(collection))
-    #     return fairness
 
     def step(self, action_list):
         """Process one step of the environment given agent actions"""
@@ -333,7 +283,8 @@ class Env:
 
         # Calculate initial fairness
         initial_fairness = self.__get_fairness(self.maptrack)
-        new_maptrack = copy.deepcopy(self.maptrack)
+        new_coverage_map= np.zeros(len(self.datas), dtype=bool)
+        new_visit_count = copy.deepcopy(self.visit_count)
         tot_energy_consumed = 0.0
 
         # Process each UAV's action
@@ -380,42 +331,29 @@ class Env:
             for index, dis in enumerate(_dis):
                 if np.sqrt(dis) <= self.comm_range:
                     # Update track for visited points
-                    new_maptrack[index] += 0.001  # indicates point was visited
+                    # new_maptrack[index] += 0.001  # indicates point was visited
+                    if not self.coverage_map[index]:
+                        new_coverage_map[index] = True
+                        new_visit_count[index] += 1
                     update_tracks.append([index, self.maptrack[index]])
 
-                    # Collect data if available
-                    if self.mapmatrix[index] > 0:
-                        data += self._mapmatrix[index] * self.collect_ratio
-                        self.mapmatrix[index] -= self._mapmatrix[index] * self.collect_ratio
-                        if self.mapmatrix[index] < 0:
-                            self.mapmatrix[index] = 0.0
-                        update_points.append([index, self.mapmatrix[index]])
-
-            # Limit data collection by available energy
-            value = min(data, self.energy[i] / self.alpha) if data > 0 else 0
-
-            # Consume energy for data collection
-            self.energy[i] -= self.alpha * value
-            tot_energy_consumed += self.factor * distance + self.alpha * value
-
-            # Update efficiency and collection metrics
-            self.collection[i] += value
+            tot_energy_consumed += self.factor * distance
 
             # Check if energy is depleted
             if self.energy[i] <= self.epsilon * self.max_energy:
                 self.dn[i] = True
 
         # Calculate new fairness after this UAV's action
-        c_f_ = self.__get_fairness(self.maptrack)
+        # c_f_ = self.__get_fairness(self.maptrack)
 
         # Calculate reward
-        fairness = self.__get_fairness(new_maptrack)
-        coverage_increment = np.sum(new_maptrack - self.maptrack)
-        for i in range(self.num_uavs):
-            reward[i] += self.__get_reward(coverage_increment, tot_energy_consumed, fairness)
+        # fairness = self.__get_fairness(new_maptrack)
+        # coverage_increment = np.sum(new_maptrack - self.maptrack)
+        # for i in range(self.num_uavs):
+            # reward[i] += self.__get_reward(coverage_increment, tot_energy_consumed, fairness)
 
-        self.maptrack = copy.deepcopy(new_maptrack)
-        c_f = c_f_
+        # self.maptrack = copy.deepcopy(new_maptrack)
+        # c_f = c_f_
 
         # Update UAV positions
         self.uav_pos = new_positions
@@ -430,8 +368,8 @@ class Env:
 
         # TO CHECK
         # Calculate metrics for return
-        coverage = 1.0 - self.leftrewards
-        fairness = self.__get_fairness(self.maptrack)
+        # coverage = 1.0 - self.leftrewards
+        # fairness = self.__get_fairness(self.maptrack)
 
         # Calculate communication penalties
         comm_penalties = np.zeros(self.num_uavs)
@@ -450,8 +388,8 @@ class Env:
     def reset(self):
         """Reset environment to initial state for a new episode"""
         # Reset data matrix and tracking
-        self.mapmatrix = copy.copy(self._mapmatrix)
-        self.maptrack = np.zeros(self.mapmatrix.shape)
+        self.coverage_map = np.zeros(len(self.datas), dtype=bool)
+        # self.maptrack = np.zeros(self.mapmatrix.shape)
 
         # Reset UAV positions and stats
         self.uav_pos = copy.deepcopy(init_positions)
