@@ -1,6 +1,7 @@
 import numpy as np
 from PIL import Image
 
+
 def decode_grayscale_image(image_path, map_width=16, wall_width=4, threshold=0.1):
     img = Image.open(image_path).convert("L")
     img_array = np.array(img) / 255.0
@@ -68,20 +69,20 @@ def decode_grayscale_image(image_path, map_width=16, wall_width=4, threshold=0.1
 
 
 def export(data_points, output_path):
-     # Convert to a proper list representation if it's a numpy array
+    # Convert to a proper list representation if it's a numpy array
     if isinstance(data_points, np.ndarray):
         # Format as a list of lists with proper commas
-        formatted_data = str([[float(x) for x in point] for point in data_points]).replace('], [', '],\n [')
+        formatted_data = str([[float(x) for x in point] for point in data_points]).replace("], [", "],\n [")
     else:
         # If it's already a list of tuples or lists
-        formatted_data = str(data_points).replace('), (', '),\n (')
-    with open(output_path, 'w') as f:
-        f.write("# Data points extracted from image\n")
-        f.write(f"test_data = {formatted_data}\n")
+        formatted_data = str(data_points).replace("), (", "),\n (")
+    with open(output_path, "w") as f:
+        f.write("import numpy as np\n")
+        f.write(f"decoded_data = {formatted_data}\n")
     print(f"Data points exported to {output_path}")
 
 
-def input_image(is_export = True):
+def input_image(is_export=True):
     image_path = "initial_state.png"  # Replace with your image path
     export_path = "decoded_points.py"  # Replace with your export path
     data_points = decode_grayscale_image(image_path)
@@ -89,16 +90,10 @@ def input_image(is_export = True):
         export(data_points, export_path)
     return data_points
 
+
 def random_state_generator(num_points, is_export=True):
     poi_data = np.random.random(size=(num_points, 2))
     export_path = "random_points.py"  # Replace with your export path
     if is_export:
         export(poi_data, export_path)
     return poi_data
-
-if __name__ == "__main__":
-    random_state_generator(10)
-    # data_points = input_image(is_export=False)
-    # print(f"Found {len(data_points)} data points:")
-    # for i, point in enumerate(data_points):
-    #     print(f"Point {i+1}: ({point[0]:.2f}, {point[1]:.2f})")

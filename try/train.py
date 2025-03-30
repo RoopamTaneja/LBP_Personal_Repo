@@ -1,36 +1,31 @@
 # TODO: plot graphs of the results stored
-# TODO : add individual agent rewards
-#TODO:save model periodically
+# TODO:save model periodically
 import numpy as np
-# from uav_env import MultiUAVEnv
-from newenv import Env as MultiUAVEnv
-from image_input import ImageToStateConverter
-from maddpg_uav import MADDPG
 import time
+from env import Env as MultiUAVEnv
+import input
+from maddpg_uav import MADDPG
 
 
 def train(use_image_init=False, image_path=None):
-    # Environment and MADDPG Initialization
-    env = MultiUAVEnv()
-    num_agents = env.num_uavs
-    # obs_dim = 2  # UAV observes its 2D position
-    obs_dim = (env.mapx, env.mapy, env.channel)
-    action_dim = 2  # (angle, distance) or 2D continuous control
 
     if use_image_init and image_path:
-        converter = ImageToStateConverter(env.mapx, env.mapy, env.channel)
-        initial_state = converter.image_to_state(image_path)
-        # Set the environment state using this grid (you'll need to add a method to env)
-        env.set_initial_state(initial_state)
+        input.input_image()
+    env = MultiUAVEnv(image_init = use_image_init, log_dir="./state_images")
+    env.save_image()
+    num_agents = env.num_uavs
+    obs_dim = (env.width, env.height, env.channels)
+    action_dim = 2
 
     maddpg = MADDPG(num_agents=num_agents, obs_shape=obs_dim, action_dim=action_dim, device="cpu", use_cnn=True)
 
-    num_episodes = 1000
-    max_steps = env.max_steps
+    num_episodes = 100 # 1000
+    max_steps = 100 # 1000
     batch_size = 64
+    log_freq = 10 # 100
 
     # Initialize for analysis/plotting
-    score_log_per_episode = {"coverage": [], "fairness": [], "energy_efficiency": [], "comm_penalty_per_uav": []}
+    score_log_per_episode = {"coverage": [], "fairness": [], "energy_efficiency": [], "penalty_per_uav": []}
     episode_rewards = []
 
     print("\n🚀 MADDPG UAV Training Started...\n")
@@ -42,7 +37,7 @@ def train(use_image_init=False, image_path=None):
         # To stored step details for each episode
         step = 0
         episode_reward = 0
-        score_log = {"coverage": [], "fairness": [], "energy_efficiency": [], "comm_penalty_per_uav": []}
+        score_log = {"coverage": [], "fairness": [], "energy_efficiency": [], "penalty_per_uav": []}
 
         for step in range(max_steps):
             # Each agent selects action based on local observation
@@ -79,9 +74,9 @@ def train(use_image_init=False, image_path=None):
         score_log_per_episode["comm_penalty_per_uav"].append(np.mean(np.stack(score_log["comm_penalty_per_uav"], axis=0), axis=0))
 
         # Logging
-        log_freq = env.log_freq
         if episode % log_freq == 0:
             elapsed_time = time.time() - start_time
+            env.save_image(f"state_epi_{episode}")
             comm_penalty_avg_per_uav = np.mean(np.stack(score_log_per_episode["comm_penalty_per_uav"][-log_freq:], axis=0), axis=0)
             comm_penalty_avg_per_uav = np.round(comm_penalty_avg_per_uav, decimals=3)
             print(f"🔄 Episode {episode} | " f"Total Reward: {np.mean(episode_rewards[-log_freq:]):.3f} | " f"Coverage Avg: {np.mean(score_log_per_episode['coverage'][-log_freq:]):.3f} | " f"Fairness Avg: {np.mean(score_log_per_episode['fairness'][-log_freq:]):.3f} | " f"Energy Efficiency Avg: {np.mean(score_log_per_episode['energy_efficiency'][-log_freq:]):.3f} | " f"Comm Penalty Avg: {comm_penalty_avg_per_uav} | " f"Elapsed Time: {elapsed_time:.2f}s")
@@ -90,12 +85,6 @@ def train(use_image_init=False, image_path=None):
         # # End of episode handling
         #     if done or terminal:
         #         # Report episode results
-        #         print('\n%d th episode:\n' % iteration)
-        #         print('\t%d steps, %.2f seconds, wasted %.2f seconds.' % (
-        #             episode_step, time.time() - m_time, env.time_))
-        #         print('\tobstacle collisions:', env.walls)
-        #         print('\tdata collection:', env.collection / env.totaldata)
-        #         print('\treminding energy:', env.energy)
         #         efficiency = env.efficiency
         #         log.draw_path(env, iteration, meaningful_fill, meaningful_get)
         #         iteration += 1
