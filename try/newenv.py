@@ -248,12 +248,12 @@ class Env:
 
     def __get_reward(self, new_visit_count, old_visit_count, energy_consumed, fairness):
         """Calculate reward"""
-        coverage_incr = np.sum((new_visit_count/self.step_count) - (old_visit_count/(self.step_count-1)))
+        coverage_incr = np.sum((new_visit_count / self.step_count) - (old_visit_count / (self.step_count - 1)))
         return fairness * coverage_incr / (energy_consumed + self.epsilon)
 
     def step(self, action_list):
         """Process one step of the environment given agent actions"""
-        actions = copy.deepcopy(action_list)
+        actions = [a.copy() for a in action_list]
         self.step_count += 1
 
         # Check for invalid actions
@@ -268,7 +268,7 @@ class Env:
 
         self.coverage_map.fill(False)  # Reset coverage map
         new_visit_count = copy.deepcopy(self.visit_count)
-        
+
         energy_consumed = 0.0
 
         # Process each UAV's action
@@ -341,7 +341,12 @@ class Env:
         done = sum(self.dn) == num_uavs  # Done if all UAVs are depleted
         avg_coverage_score = np.mean(new_visit_count / self.step_count)
         fairness = self.__get_fairness(new_visit_count)
- 
+
+        # total_energy_cost = sum(self.max_energy - self.energy)  # Cumulative energy
+        # normalized_energy = total_energy_cost / (self.num_uavs * self.max_steps * MAX_ENERGY_PER_STEP)
+        # # Energy efficiency metric per paper
+        # energy_efficiency = (fairness * avg_coverage_score) / (normalized_energy + 1e-6)
+
         if self.step_count > 1:
             common_reward = self.__get_reward(new_visit_count, self.visit_count, energy_consumed, fairness)
             for i in range(self.num_uavs):
@@ -357,7 +362,7 @@ class Env:
         self.__update_state(clear_uav)
 
         # Return state, done flag, reward, and metrics
-        return (copy.deepcopy(self.state), done, reward, (avg_coverage_score, fairness, energy_consumed, comm_penalty))
+        return (self.state, done, reward, (avg_coverage_score, fairness, energy_consumed, comm_penalty))
 
     def reset(self):
         """Reset environment to initial state for a new episode"""
@@ -369,10 +374,10 @@ class Env:
         self.dn = [False] * self.num_uavs
 
         self.__init_state()
-        return copy.deepcopy(self.state)
+        return self.state
 
 
 if __name__ == "__main__":
     env = Env()
     env.reset()
-    env.save_image()
+    env.save_image(include_uavs=False)
