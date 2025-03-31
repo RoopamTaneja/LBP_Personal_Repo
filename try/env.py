@@ -15,11 +15,11 @@ num_uavs = 6
 init_positions = [[4, 4], [12, 4], [4, 12], [12, 12], [8, 8], [8, 4]]
 max_energy = 500
 num_action = 2
-comm_range = 1.1
+hover_energy = 0.2
+comm_range = 1.5
 max_distance = 1.0
 wall_penalty = -1.0
 comm_broken_penalty = -1.0
-hover_energy = 1.0
 epsilon = 1e-4
 factor = 0.1
 
@@ -45,9 +45,9 @@ class Env:
         self.max_energy = max_energy
         self.comm_range = comm_range
         self.max_dist = max_distance
-        self.hover_energy = hover_energy  # Energy needed for hovering
         self.factor = factor  # Energy needed per unit distance moved
         self.epsilon = epsilon  # A small value for reference
+        self.hover_energy = hover_energy  # Energy needed for hovering
         self.p_wall = wall_penalty
         self.p_comm = comm_broken_penalty
         self.dn = [False] * self.num_uavs  # UAVs with depleted energy
@@ -155,11 +155,11 @@ class Env:
             state.append(image)
         self.state = state
 
-    def __update_state(self, clear_uav):
+    def __update_state(self, clear_uav_pos):
         """Update state with UAV positions and coverage info"""
         for n in range(self.num_uavs):
             # Update UAV positions (channel 1)
-            self._clear_uav(clear_uav[n][0], clear_uav[n][1], self.state[n][:, :, 1])
+            self._clear_uav(clear_uav_pos[n][0], clear_uav_pos[n][1], self.state[n][:, :, 1])
             self._draw_UAV(self.uav_pos[n][0], self.uav_pos[n][1], self.energy[n] / self.max_energy, self.state[n][:, :, 1])
 
             # Update coverage information (channel 2)
@@ -179,49 +179,29 @@ class Env:
 
     def __get_reward(self, new_visit_count, old_visit_count, energy_consumed, fairness):
         """Calculate reward"""
-        coverage_incr = np.sum((new_visit_count / self.step_count) - (old_visit_count / (self.step_count - 1)))
+        if self.step_count > 1:
+            coverage_incr = np.sum((new_visit_count / self.step_count) - (old_visit_count / (self.step_count - 1)))
+        else:
+            coverage_incr = np.sum(new_visit_count / self.step_count)
         return fairness * coverage_incr / (energy_consumed + self.epsilon)
 
     def step(self, action_list):
         """Process one step of the environment given agent actions"""
-        actions = copy.deepcopy(action_list)
+        actions = copy.copy(action_list)
         self.step_count += 1
-
-        # Check for invalid actions
-        for i in range(self.num_uavs):
-            if np.isnan(actions[i]).any():
-                raise ValueError("NaN value detected in action")
-
-        # Initialize step variables
         reward = [0] * self.num_uavs
-        clear_uav = copy.copy(self.uav_pos)
         new_positions = []
-
         self.coverage_map.fill(False)  # Reset coverage map
         new_visit_count = copy.deepcopy(self.visit_count)
-
-        energy_consumed = 0.0
+        energy_consumed = 0.0  # Total energy consumed in this step
 
         # Process each UAV's action
         for i in range(self.num_uavs):
-            # Record trajectory
             if self.dn[i]:
                 new_positions.append(self.uav_pos[i])
                 continue
 
-            # Ensure actions are in the correct format
             action = actions[i]
-
-            # Check if action is a nested array and flatten if needed
-            if isinstance(action, np.ndarray) and action.ndim > 1:
-                action = action.flatten()
-
-            # Ensure we have exactly 2 values
-            if len(action) != 2:
-                raise ValueError(f"Expected action to have 2 values, but got {len(action)}")
-
-            # actions[0] is angle in radians (scaled from [-1,1] to [0,2π])
-            # actions[1] is distance ratio (scaled from [-1,1] to [0,1])
             angle = (action[0] + 1) * np.pi  # Map from [-1,1] to [0,2π]
             distance_ratio = (action[1] + 1) / 2  # Map from [-1,1] to [0,1]
 
@@ -229,9 +209,8 @@ class Env:
             # Limit movement based on available energy
             if self.energy[i] < distance:
                 distance = distance_ratio * self.energy[i]
-            delta_x = int(distance * np.cos(angle))
-            delta_y = int(distance * np.sin(angle))
-
+            delta_x = distance * np.cos(angle)
+            delta_y = distance * np.sin(angle)
             new_x = self.uav_pos[i][0] + delta_x
             new_y = self.uav_pos[i][1] + delta_y
 
@@ -245,21 +224,19 @@ class Env:
                 self.penalty[i] += 1
 
             # Calculate distances to all data points
-            _pos = np.repeat([new_positions[-1]], [self.datas.shape[0]], axis=0)
-            _minus = self.datas - _pos
-            _power = np.power(_minus, 2)
-            _dis = np.sum(_power, axis=1)
+            _dis_sq = np.sum(np.square(self.datas - new_positions[-1]), axis=1)
 
-            # Process data collection for points within range
-            for index, dis in enumerate(_dis):
-                if np.sqrt(dis) <= self.comm_range:
+            # Cover points within range
+            for index, dis_sq in enumerate(_dis_sq):
+                if dis_sq <= self.comm_range**2:
                     if not self.coverage_map[index]:
                         self.coverage_map[index] = True
                         new_visit_count[index] += 1
 
             # Consume energy
-            self.energy[i] -= self.factor * distance
-            energy_consumed += self.factor * distance
+            energy_consumed_uav = min(self.factor * distance + self.hover_energy * (1 - distance_ratio), self.energy[i])
+            self.energy[i] -= energy_consumed_uav
+            energy_consumed += energy_consumed_uav
 
             # Check if energy is depleted
             if self.energy[i] <= self.epsilon * self.max_energy:
@@ -285,12 +262,12 @@ class Env:
         fairness = self.__get_fairness(new_visit_count)
 
         total_energy_consumed = np.sum(self.max_energy - self.energy)  # Cumulative energy
-        normalized_energy = total_energy_consumed / (self.num_uavs * self.step_count * self.max_energy)
-        energy_efficiency = (fairness * avg_coverage_score) / (normalized_energy + self.epsilon)
+        normalized_energy = total_energy_consumed / (self.num_uavs * self.step_count * self.factor * self.max_dist)
+        avg_energy_eff = (fairness * avg_coverage_score) / (normalized_energy + self.epsilon)
 
-        if self.step_count > 1:
-            common_reward = self.__get_reward(new_visit_count, self.visit_count, energy_consumed, fairness)
-            for i in range(self.num_uavs):
+        common_reward = self.__get_reward(new_visit_count, self.visit_count, energy_consumed, fairness)
+        for i in range(self.num_uavs):
+            if not self.dn[i]:
                 reward[i] += common_reward
 
         # Check for invalid rewards
@@ -298,12 +275,12 @@ class Env:
             if np.isnan(r):
                 raise ValueError("NaN value detected in reward")
 
+        clear_uav_pos = copy.copy(self.uav_pos)
         self.uav_pos = new_positions
         self.visit_count = new_visit_count
-        self.__update_state(clear_uav)
+        self.__update_state(clear_uav_pos)
 
-        # Return state, done flag, reward, and metrics
-        return (self.state, done, reward, (avg_coverage_score, fairness, energy_efficiency, self.penalty))
+        return (self.state, done, reward, (avg_coverage_score, fairness, avg_energy_eff, self.penalty))
 
     def reset(self):
         """Reset environment to initial state for a new episode"""
