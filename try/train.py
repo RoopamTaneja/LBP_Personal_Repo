@@ -12,12 +12,11 @@ def train(use_image_init=False, image_path=None):
     if use_image_init and image_path:
         input.input_image()
     env = MultiUAVEnv(image_init = use_image_init, log_dir="./state_images")
-    env.save_image()
     num_agents = env.num_uavs
     obs_dim = (env.width, env.height, env.channels)
     action_dim = 2
 
-    maddpg = MADDPG(num_agents=num_agents, obs_shape=obs_dim, action_dim=action_dim, device="cpu", use_cnn=True)
+    maddpg = MADDPG(num_agents=num_agents, obs_shape=obs_dim, action_dim=action_dim, device="cpu")
 
     num_episodes = 100 # 1000
     max_steps = 100 # 1000
@@ -33,13 +32,14 @@ def train(use_image_init=False, image_path=None):
 
     for episode in range(1, num_episodes + 1):
         obs = env.reset()  # shape: (num_agents, obs_dim)
+        if episode == 1:
+            env.save_image()
         maddpg.reset_noise()
 
-        step = 0
         episode_reward = 0
         score_log = {"coverage": [], "fairness": [], "energy_efficiency": [], "penalty_per_uav": []}
 
-        for step in range(max_steps):
+        for _ in range(max_steps):
             # Each agent selects action based on local observation
             actions = maddpg.select_action(obs)  # shape: (num_agents, action_dim)
             # Step the environment

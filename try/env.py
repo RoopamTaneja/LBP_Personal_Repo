@@ -193,7 +193,7 @@ class Env:
 
     def step(self, action_list):
         """Process one step of the environment given agent actions"""
-        actions = [a.copy() for a in action_list]
+        actions = copy.copy(action_list)
         self.step_count += 1
 
         # Check for invalid actions
@@ -220,8 +220,8 @@ class Env:
 
             # actions[0] is angle in radians (scaled from [-1,1] to [0,2π])
             # actions[1] is distance ratio (scaled from [-1,1] to [0,1])
-            angle = (actions[i][0] + 1) * np.pi  # Map from [-1,1] to [0,2π]
-            distance_ratio = (actions[i][1] + 1) / 2  # Map from [-1,1] to [0,1]
+            angle = (actions[i][0][0] + 1) * np.pi  # Map from [-1,1] to [0,2π]
+            distance_ratio = (actions[i][0][1] + 1) / 2  # Map from [-1,1] to [0,1]
 
             distance = distance_ratio * self.max_dist
             # Limit movement based on available energy
