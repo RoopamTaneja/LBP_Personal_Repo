@@ -19,7 +19,7 @@ comm_range = 1.1
 max_distance = 1.0
 wall_penalty = -1.0
 comm_broken_penalty = -1.0
-alpha = 1.0
+hover_energy = 1.0
 epsilon = 1e-4
 factor = 0.1
 
@@ -39,18 +39,18 @@ class Env:
         self.num_uavs = num_uavs
         self.observation_space = [spaces.Box(low=-1, high=1, shape=(self.width, self.height, self.channels)) for _ in range(self.num_uavs)]
         self.action_space = [spaces.Box(low=-1, high=1, shape=(num_action,)) for _ in range(self.num_uavs)]
+        self.step_count = 0
 
         # Movement and collection parameters
         self.max_energy = max_energy
         self.comm_range = comm_range
         self.max_dist = max_distance
-        self.alpha = alpha  # Energy needed per unit data collected
+        self.hover_energy = hover_energy  # Energy needed for hovering
         self.factor = factor  # Energy needed per unit distance moved
         self.epsilon = epsilon  # A small value for reference
-        self.step_count = 0
-        self.dn = [False] * self.num_uavs  # UAVs with depleted energy
         self.p_wall = wall_penalty
         self.p_comm = comm_broken_penalty
+        self.dn = [False] * self.num_uavs  # UAVs with depleted energy
         self.energy = np.ones(self.num_uavs).astype(np.float64) * self.max_energy
         self.penalty = np.zeros(self.num_uavs)
 
@@ -64,6 +64,7 @@ class Env:
         self.total_points = len(self.datas)
         self.coverage_map = np.zeros(self.total_points, dtype=bool)
         self.visit_count = np.zeros(self.total_points, dtype=np.int16)
+        self.uav_pos = copy.deepcopy(init_positions)
 
         self._init_data_map = np.zeros((self.width, self.height)).astype(np.float16)
         self._init_position_map = np.zeros((num_uavs, self.width, self.height)).astype(np.float16)
@@ -110,16 +111,12 @@ class Env:
         x, y = self._transform_coords(x, y)
         self._draw_square(x, y, 4, 4, value, grid)
 
-    def _clear_data_point(self, x, y, grid):
-        x, y = self._transform_coords(x, y)
-        self._draw_square(x, y, 2, 2, 0, grid)
-
     def _clear_uav(self, x, y, grid):
         x, y = self._transform_coords(x, y)
         self._draw_square(x, y, 4, 4, 0, grid)
 
     def save_image(self, name=None, include_uavs=True):
-        grid = self.image_data.copy()
+        grid = self._init_data_map.copy()
         max_value = np.max(grid)
         if max_value > 0:  # Normalize grid to [0, 1] range
             grid = grid / max_value
@@ -131,7 +128,7 @@ class Env:
                 for dx in range(2):
                     for dy in range(2):
                         if 0 <= x + dx < self.width and 0 <= y + dy < self.height:
-                            rgb_img[x + dx, y + dy] = [0.3, 1.0, 0.3]
+                            rgb_img[x + dx, y + dy] = [0.7, 1.0, 0.7]
         if include_uavs:
             colors = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 1.0, 0.0], [0.0, 1.0, 1.0], [1.0, 0.0, 1.0]]
             for i, pos in enumerate(self.uav_pos):
@@ -148,23 +145,18 @@ class Env:
         img.save(os.path.join(self.img_path, f"{name}.png"), "png")
 
     def __init_state(self):
-        """Initialize image representation for each UAV"""
-        self.image_data = copy.copy(self._init_data_map)
-        self.image_position = copy.copy(self._init_position_map)
-        self.image_track = np.zeros(self.image_position.shape)
-
-        # Create state representation for each UAV
+        """Initialize state"""
         state = []
         for i in range(self.num_uavs):
             image = np.zeros((self.width, self.height, self.channels)).astype(np.float16)
-            image[:, :, 0] = self.image_data
-            image[:, :, 1] = self.image_position[i]
+            image[:, :, 0] = copy.copy(self._init_data_map)
+            image[:, :, 1] = copy.copy(self._init_position_map[i])
             # image[:, :, 2] is already initialized to zeros
             state.append(image)
         self.state = state
 
     def __update_state(self, clear_uav):
-        """Update state representation after UAV movements and data collection"""
+        """Update state with UAV positions and coverage info"""
         for n in range(self.num_uavs):
             # Update UAV positions (channel 1)
             self._clear_uav(clear_uav[n][0], clear_uav[n][1], self.state[n][:, :, 1])
@@ -172,10 +164,9 @@ class Env:
 
             # Update coverage information (channel 2)
             self.state[n][:, :, 2].fill(0.0)
-            max_visit = max(1, np.max(self.visit_count))
             for i, pos in enumerate(self.datas):
                 if self.visit_count[i] > 0:
-                    self._draw_data_point(pos[0], pos[1], self.state[n][:, :, 2], min(self.visit_count[i] / max_visit, 1.0))
+                    self._draw_data_point(pos[0], pos[1], self.state[n][:, :, 2], self.visit_count[i] / self.step_count)
 
     def __get_fairness(self, values):
         """Calculate Jain's fairness index for a set of values"""
@@ -317,12 +308,12 @@ class Env:
     def reset(self):
         """Reset environment to initial state for a new episode"""
         self.step_count = 0
-        self.coverage_map = np.zeros(self.total_points, dtype=bool)
-        self.visit_count = np.zeros(self.total_points, dtype=np.int16)
-        self.uav_pos = copy.deepcopy(init_positions)
-        self.energy = np.ones(self.num_uavs).astype(np.float64) * self.max_energy
+        self.energy.fill(self.max_energy)
         self.dn = [False] * self.num_uavs
-        self.penalty = np.zeros(self.num_uavs)
+        self.penalty.fill(0)
+        self.coverage_map.fill(False)
+        self.visit_count.fill(0)
+        self.uav_pos = copy.deepcopy(init_positions)
 
         self.__init_state()
         return self.state
