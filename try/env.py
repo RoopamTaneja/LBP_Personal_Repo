@@ -177,10 +177,10 @@ class Env:
         jain_fairness_index = square_of_sum / (sum_of_square * float(len(values)))
         return jain_fairness_index
 
-    def __get_reward(self, new_visit_count, old_visit_count, energy_consumed, fairness):
+    def __get_reward(self, new_visit_count, energy_consumed, fairness):
         """Calculate reward"""
         if self.step_count > 1:
-            coverage_incr = np.sum((new_visit_count / self.step_count) - (old_visit_count / (self.step_count - 1)))
+            coverage_incr = np.sum((new_visit_count / self.step_count) - (self.visit_count / (self.step_count - 1)))
         else:
             coverage_incr = np.sum(new_visit_count / self.step_count)
         return fairness * coverage_incr / (energy_consumed + self.epsilon)
@@ -206,9 +206,6 @@ class Env:
             distance_ratio = (action[1] + 1) / 2  # Map from [-1,1] to [0,1]
 
             distance = distance_ratio * self.max_dist
-            # Limit movement based on available energy
-            if self.energy[i] < distance:
-                distance = distance_ratio * self.energy[i]
             delta_x = distance * np.cos(angle)
             delta_y = distance * np.sin(angle)
             new_x = self.uav_pos[i][0] + delta_x
@@ -265,7 +262,7 @@ class Env:
         normalized_energy = total_energy_consumed / (self.num_uavs * self.step_count * self.factor * self.max_dist)
         avg_energy_eff = (fairness * avg_coverage_score) / (normalized_energy + self.epsilon)
 
-        common_reward = self.__get_reward(new_visit_count, self.visit_count, energy_consumed, fairness)
+        common_reward = self.__get_reward(new_visit_count, energy_consumed, fairness)
         for i in range(self.num_uavs):
             if not self.dn[i]:
                 reward[i] += common_reward
