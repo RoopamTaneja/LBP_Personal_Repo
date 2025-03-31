@@ -55,12 +55,19 @@ class MADDPG:
             obs_tensor = torch.tensor(obs[i], dtype=torch.float32).to(self.device)
 
             # CNN expects (batch, channels, height, width)
-            if len(obs_tensor.shape) == 3:  # (width, height, channels)
-                obs_tensor = obs_tensor.permute(2, 1, 0).unsqueeze(0)  # (1, channels, height, width)
+            if len(obs_tensor.shape) == 3:  # (height, width, channels)
+                obs_tensor = obs_tensor.permute(2, 0, 1).unsqueeze(0)  # (1, channels, height, width)
 
-            action = actor(obs_tensor).detach().cpu().numpy()
+            with torch.no_grad():
+                action = actor(obs_tensor).detach().cpu().numpy()
+
+            # Handle single action without batch dimension
+            if len(action.shape) > 1:
+                action = action[0]  # Take first element if batch dimension exists
+
             if noise:
                 action += self.noise[i].sample()
+
             actions.append(np.clip(action, -1, 1))
 
         return np.array(actions)
@@ -86,13 +93,13 @@ class MADDPG:
 
             for j in range(self.num_agents):
                 # Process current observations
-                # Reshape for CNN: (batch, agent, width, height, channels) -> (batch, channels, height, width)
-                agent_obs = obs_tensor[:, j].permute(0, 3, 2, 1)
+                # Reshape for CNN: (batch, agent, height, width, channels) -> (batch, channels, height, width)
+                agent_obs = obs_tensor[:, j].permute(0, 3, 1, 2)
                 agent_features = self.actors[j].cnn(agent_obs)
                 all_obs_features.append(agent_features)
 
                 # Process next observations
-                agent_next_obs = next_obs_tensor[:, j].permute(0, 3, 2, 1)
+                agent_next_obs = next_obs_tensor[:, j].permute(0, 3, 1, 2)
                 agent_next_features = self.target_actors[j].cnn(agent_next_obs)
                 all_next_obs_features.append(agent_next_features)
 
@@ -107,7 +114,7 @@ class MADDPG:
             next_actions = []
             for j, target_actor in enumerate(self.target_actors):
                 # Process grid observation
-                next_obs_j = next_obs_tensor[:, j].permute(0, 3, 2, 1)
+                next_obs_j = next_obs_tensor[:, j].permute(0, 3, 1, 2)
                 next_agent_action = target_actor(next_obs_j)
                 next_actions.append(next_agent_action)
 
@@ -133,19 +140,19 @@ class MADDPG:
             for j in range(self.num_agents):
                 if j == i:
                     # Process grid observation
-                    obs_i = obs_tensor[:, i].permute(0, 3, 2, 1)
+                    obs_i = obs_tensor[:, i].permute(0, 3, 1, 2)
                     current_agent_action = self.actors[i](obs_i)
                     current_actions.append(current_agent_action)
                 else:
-                    current_actions.append(act_tensor[:, j, :].detach())
+                    current_actions.append(act_tensor[:, j].detach())
 
             current_actions_tensor = torch.stack(current_actions, dim=1)
             current_actions_flat = current_actions_tensor.view(batch_size, -1)
 
             # Policy gradient
-            actor_loss = -self.critics[i](obs_flat, current_actions_flat).mean()
+            actor_loss = -self.critics[i](obs_flat.detach(), current_actions_flat).mean()
             self.actor_optimizers[i].zero_grad()
-            actor_loss.backward()
+            actor_loss.backward()  # Retain graph for critic update
             self.actor_optimizers[i].step()
 
             # Soft update target networks

@@ -93,7 +93,12 @@ def input_image(is_export=True):
 
 def random_state_generator(num_points, is_export=True):
     poi_data = np.random.random(size=(num_points, 2))
-    export_path = "random_points.py"  # Replace with your export path
+    export_path = "decoded_points.py"  # Replace with your export path
     if is_export:
         export(poi_data, export_path)
     return poi_data
+
+
+if __name__ == "__main__":
+    # Example usage
+    random_state_generator(25, is_export=True)

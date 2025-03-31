@@ -21,7 +21,7 @@ def train(use_image_init=False, image_path=None):
     num_episodes = 100 # 1000
     max_steps = 100 # 1000
     batch_size = 64
-    log_freq = 10 # 100
+    log_freq = 1 # 100
 
     # Initialize for analysis/plotting
     score_log_per_episode = {"coverage": [], "fairness": [], "energy_efficiency": [], "penalty_per_uav": []}
@@ -83,4 +83,5 @@ def train(use_image_init=False, image_path=None):
 
 
 if __name__ == "__main__":
-    train(use_image_init=False)
+    # train(use_image_init=False)
+    train(use_image_init=True, image_path="initial_state.png")
