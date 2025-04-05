@@ -26,3 +26,15 @@ Work done by both till now for project :
 - Studied basics of multi-agent deep reinforcement learning.
 - Studied and implemented MARL algorithms : Multi-Agent Deep SARSA and Multi-Agent Deep Deterministic Policy Gradient (MADDPG) using Pytorch and PettingZoo libraries.
 - Studied basics of RL, DL, neural networks and Deep RL.
+
+
+---
+
+For running code inside try folder :
+
+```bash
+cd try
+python train.py # run using coordinates in data_points.py (no image input)
+# Or use
+python train.py --use_img --img_path="path_of_img_relative_to_current_dir" # (for image input)
+```
