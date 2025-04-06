@@ -14,13 +14,13 @@ channel = 3
 num_uavs = 6
 max_energy = 500
 num_action = 2
-hover_energy = 0.2
+hover_energy = 0.5
 comm_range = 3.0
-max_distance = 1.0
-wall_penalty = -1.0
+max_distance = 1.5
+wall_penalty = -10.0
 comm_broken_penalty = -1.0
 epsilon = 1e-4
-factor = 0.1
+factor = 1.0 / 3.0
 
 
 class Env:
