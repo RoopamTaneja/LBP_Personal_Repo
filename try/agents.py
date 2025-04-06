@@ -6,11 +6,11 @@ from cnn import CNN
 
 
 class ActorNetwork(nn.Module):
-    def __init__(self, input_channels=3, action_dim=2, hidden_dim=160):
+    def __init__(self, action_dim=2, hidden_dim=160):
         super(ActorNetwork, self).__init__()
 
         # CNN feature extractor
-        self.cnn = CNN(input_channels)
+        self.cnn = CNN()
         feature_dim = self.cnn.feature_dim
 
         # MLP layers

@@ -16,8 +16,8 @@ class MADDPG:
         self.grid_width, self.grid_height, self.input_channels = self.obs_dim
 
         # Initialize actor networks
-        self.actors = [ActorNetwork(input_channels=self.input_channels, action_dim=action_dim, hidden_dim=hidden_dim).to(device) for _ in range(num_agents)]
-        self.target_actors = [ActorNetwork(input_channels=self.input_channels, action_dim=action_dim, hidden_dim=hidden_dim).to(device) for _ in range(num_agents)]
+        self.actors = [ActorNetwork(action_dim=action_dim, hidden_dim=hidden_dim).to(device) for _ in range(num_agents)]
+        self.target_actors = [ActorNetwork(action_dim=action_dim, hidden_dim=hidden_dim).to(device) for _ in range(num_agents)]
         self.actor_optimizers = [torch.optim.Adam(actor.parameters(), lr=actor_lr) for actor in self.actors]
 
         # Calculate feature dimension for critic

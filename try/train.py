@@ -36,7 +36,7 @@ def train(use_image_init=False, image_path=None):
     num_episodes = 100  # 500
     max_steps = 500  # 500
     batch_size = 32
-    log_freq = 10
+    log_freq = 1 # 10
     learn_freq = 5  # learn every 5 steps
     save_freq = 10  # save models every 10 episodes
 
@@ -52,7 +52,7 @@ def train(use_image_init=False, image_path=None):
         maddpg.reset_noise()
 
         if episode == 1:
-            env.save_image()
+            env.save_state_image()
 
         episode_reward = 0
         score_log = {"coverage": [], "fairness": [], "energy_efficiency": [], "penalty_per_uav": []}
@@ -91,7 +91,8 @@ def train(use_image_init=False, image_path=None):
         # Logging
         if episode % log_freq == 0:
             elapsed_time = time.time() - start_time
-            env.save_image(f"state_epi_{episode}")
+            env.save_state_image(f"state_epi_{episode}")
+            env.save_heat_map_image(f"heat_map_epi_{episode}")
             penalty_avg = np.mean(np.stack(score_log_per_episode["penalty_per_uav"][-log_freq:], axis=0), axis=0)
             penalty_avg = np.round(penalty_avg, decimals=3)
             print(f"🔄 Episode {episode} | " f"Total Reward: {np.mean(episode_rewards[-log_freq:]):.3f} | " f"Coverage Avg: {np.mean(score_log_per_episode['coverage'][-log_freq:]):.3f} | " f"Fairness Avg: {np.mean(score_log_per_episode['fairness'][-log_freq:]):.3f} | " f"Energy Efficiency Avg: {np.mean(score_log_per_episode['energy_efficiency'][-log_freq:]):.3f} | " f"Penalty Avg: {penalty_avg} | " f"Elapsed Time: {elapsed_time:.2f}s")
