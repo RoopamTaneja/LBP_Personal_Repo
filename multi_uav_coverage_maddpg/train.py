@@ -19,10 +19,10 @@ def save_models(maddpg, episode, save_dir="saved_models"):
         os.makedirs(save_path)
 
     maddpg.save(save_path)
-    print(f"📁 Models saved at episode {episode}\n")
+    print(f"📁 Models saved for episode {episode}\n")
 
 
-def train(num_episodes=500, use_image_init=False, image_path=None, resume_model=None):
+def train(num_episodes, use_image_init=False, image_path=None, resume_model=None):
     if use_image_init:
         if not image_path:
             raise ValueError("Image path is required when using image initialization.")
@@ -30,7 +30,7 @@ def train(num_episodes=500, use_image_init=False, image_path=None, resume_model=
 
     env = MultiUAVEnv(image_init=use_image_init, log_dir="./train_images")
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    print(f"🚀 Training started at {timestamp}")
+    print(f"\n🚀 Training started at {timestamp} for {num_episodes} episodes\n")
 
     logger = Logger(
         log_dir="./train_logs",
@@ -43,10 +43,8 @@ def train(num_episodes=500, use_image_init=False, image_path=None, resume_model=
 
     maddpg = MADDPG(num_agents=num_agents, obs_shape=obs_dim, action_dim=action_dim)
     if resume_model:
-        if not os.path.exists(resume_model):
-            raise ValueError(f"Resume model path does not exist: {resume_model}")
         maddpg.load(resume_model)
-        print(f"📂 Resumed training from: {resume_model}")
+        print(f"📂 Resumed training from: {resume_model}\n")
 
     MAX_STEPS = 300
     BATCH_SIZE = 32
@@ -118,7 +116,7 @@ def train(num_episodes=500, use_image_init=False, image_path=None, resume_model=
     print("✅ Training Completed!\n")
 
     # Call the plotting function at the end of training
-    print("📊 Generating plots...")
+    print("📊 Generating plots...\n")
     generate_plots(log_file=f"./train_logs/{f"log_data_{timestamp}.json"}", output_dir="./plots/", output_file="training_plots.png")
 
 

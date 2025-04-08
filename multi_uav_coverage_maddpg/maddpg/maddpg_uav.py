@@ -221,4 +221,4 @@ class MADDPG:
             self.target_critics[i].load_state_dict(checkpoint["target_critic"])
             self.critic_optimizers[i].load_state_dict(checkpoint["critic_optimizer"])
 
-        print(f"📥 Models loaded successfully from {path}")
+        print(f"📥 Models loaded successfully from {path}\n")
