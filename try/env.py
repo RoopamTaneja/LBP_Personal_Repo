@@ -6,57 +6,61 @@ from PIL import Image
 import os
 
 # Environment parameters
-map_width = map_height = 16
-grid_width = grid_height = 80
-wall_width = 4
-wall_value = -1
-channel = 3
-num_uavs = 6
-max_energy = 500
-num_action = 2
-hover_energy = 0.5
-comm_range = 6.0
-cov_range = 3.0
-max_distance = 3.0
-wall_penalty = -10.0
-comm_broken_penalty = -1.0
-epsilon = 1e-4
-factor = 1.0 / 3.0
+MAP_WIDTH = MAP_HEIGHT = 16
+GRID_WIDTH = GRID_HEIGHT = 80
+WALL_WIDTH = 4
+WALL_VALUE = -1
+CHANNEL = 3
+NUM_UAVS = 6
+MAX_ENERGY = 500
+NUM_ACTION = 2
+HOVER_ENERGY = 0.5
+COMM_RANGE = 6.0
+COV_RANGE = 3.0
+MAX_DISTANCE = 3.0
+WALL_PENALTY = -10.0
+COMM_PENALTY = -1.0
+EPSILON = 1e-4
+ENERGY_FACTOR = 1.0 / 3.0
+ENTROPY_FACTOR = 0.1
 
 
 class Env:
     def __init__(self, image_init=False, log_dir="."):
-        self.map_width = map_width
-        self.map_height = map_height
-        self.width = grid_width
-        self.height = grid_height
-        self.channels = channel
-        self.img_path = log_dir
-        if not os.path.exists(self.img_path):
-            os.makedirs(self.img_path)
+        self.map_width = MAP_WIDTH
+        self.map_height = MAP_HEIGHT
+        self.width = GRID_WIDTH
+        self.height = GRID_HEIGHT
+        self.channels = CHANNEL
+        self.state_img_path = log_dir + "/state_images"
+        self.heat_map_path = log_dir + "/heat_maps"
+        if not os.path.exists(self.state_img_path):
+            os.makedirs(self.state_img_path)
+        if not os.path.exists(self.heat_map_path):
+            os.makedirs(self.heat_map_path)
 
         # UAV configuration
-        self.init_positions = np.random.rand(num_uavs, 2) * map_width
-        self.num_uavs = num_uavs
-        self.observation_space = [spaces.Box(low=-1, high=1, shape=(self.width, self.height, self.channels)) for _ in range(self.num_uavs)]
-        self.action_space = [spaces.Box(low=-1, high=1, shape=(num_action,)) for _ in range(self.num_uavs)]
+        self.num_uavs = NUM_UAVS
+        self.init_positions = np.random.rand(self.num_uavs, 2) * self.map_width
+        self.observation_space = [spaces.Box(low=-1, high=1, shape=(self.height, self.width, self.channels)) for _ in range(self.num_uavs)]
+        self.action_space = [spaces.Box(low=-1, high=1, shape=(NUM_ACTION,)) for _ in range(self.num_uavs)]
         self.step_count = 0
 
         # Movement and collection parameters
-        self.max_energy = max_energy
-        self.comm_range = comm_range
-        self.cov_range = cov_range
-        self.max_dist = max_distance
-        self.factor = factor  # Energy needed per unit distance moved
-        self.epsilon = epsilon  # A small value for reference
-        self.hover_energy = hover_energy  # Energy needed for hovering
-        self.p_wall = wall_penalty
-        self.p_comm = comm_broken_penalty
+        self.max_energy = MAX_ENERGY
+        self.comm_range = COMM_RANGE
+        self.cov_range = COV_RANGE
+        self.max_dist = MAX_DISTANCE
+        self.entropy_factor = ENTROPY_FACTOR  # Entropy factor for exploration
+        self.energy_factor = ENERGY_FACTOR  # Energy needed per unit distance moved
+        self.epsilon = EPSILON  # A small value for reference
+        self.hover_energy = HOVER_ENERGY  # Energy needed for hovering
+        self.p_wall = WALL_PENALTY
+        self.p_comm = COMM_PENALTY
         self.dn = [False] * self.num_uavs  # UAVs with depleted energy
         self.energy = np.ones(self.num_uavs).astype(np.float64) * self.max_energy
         self.penalty = np.zeros(self.num_uavs)
 
-        # Initialize data points from test_data module
         if image_init:
             from decoded_points import decoded_data  # type: ignore
 
@@ -68,8 +72,8 @@ class Env:
         self.visit_count = np.zeros(self.total_points, dtype=np.int16)
         self.uav_pos = copy.deepcopy(self.init_positions)
 
-        self._init_data_map = np.zeros((self.width, self.height)).astype(np.float16)
-        self._init_position_map = np.zeros((num_uavs, self.width, self.height)).astype(np.float16)
+        self._init_data_map = np.zeros((self.height, self.width)).astype(np.float16)
+        self._init_position_map = np.zeros((self.num_uavs, self.height, self.width)).astype(np.float16)
 
         # Draw walls and data points on data map
         self._draw_wall(self._init_data_map)
@@ -82,7 +86,7 @@ class Env:
 
     def _transform_coords(self, x, y):
         """Transform logical coordinates to visual coordinates"""
-        return int(4 * x + wall_width * 2), int(4 * y + wall_width * 2)
+        return 4 * int(x) + WALL_WIDTH * 2, 4 * int(y) + WALL_WIDTH * 2
 
     def _draw_square(self, x, y, width, height, value, grid, add=False):
         for i in range(x, x + width):
@@ -95,15 +99,15 @@ class Env:
 
     def _draw_wall(self, grid):
         for j in range(self.height):
-            for i in range(wall_width):
-                grid[i][j] = wall_value
-            for i in range(self.height - wall_width, self.height):
-                grid[i][j] = wall_value
+            for i in range(WALL_WIDTH):
+                grid[i][j] = WALL_VALUE
+            for i in range(self.height - WALL_WIDTH, self.height):
+                grid[i][j] = WALL_VALUE
         for i in range(self.width):
-            for j in range(wall_width):
-                grid[i][j] = wall_value
-            for j in range(self.height - wall_width, self.height):
-                grid[i][j] = wall_value
+            for j in range(WALL_WIDTH):
+                grid[i][j] = WALL_VALUE
+            for j in range(self.height - WALL_WIDTH, self.height):
+                grid[i][j] = WALL_VALUE
 
     def _draw_data_point(self, x, y, grid, value=1.0):
         x, y = self._transform_coords(x, y)
@@ -124,7 +128,7 @@ class Env:
             grid = grid / max_value
         rgb_img = np.stack([grid, grid, grid], axis=2)
 
-        for i, pos in enumerate(self.datas):
+        for i, pos in enumerate(self.datas):  # Colour covered data points as light green
             if self.coverage_map[i]:
                 x, y = self._transform_coords(pos[0], pos[1])
                 for dx in range(2):
@@ -144,30 +148,34 @@ class Env:
         img = Image.fromarray(img, "RGB")
         if name is None:
             name = "initial_state"
-        img.save(os.path.join(self.img_path, f"{name}.png"), "png")
+        img.save(os.path.join(self.state_img_path, f"{name}.png"), "png")
 
     def save_heat_map_image(self, name):
         cov_data = self.state[0][:, :, 2].copy()
-        # Create RGB representation
-        rgb_img = np.ones((self.width, self.height, 3), dtype=np.float64)  # Initialize with white
-        
-        # Blue to cyan to green to yellow to red colormap
-        mask = cov_data > 0.01
-        rgb_img[mask, 0] = np.where(cov_data[mask] > 0.75, 1.0, 1.33 * cov_data[mask])  # Red
-        rgb_img[mask, 1] = np.where(cov_data[mask] < 0.75, cov_data[mask] * 1.33, 1.33 - 1.33 * cov_data[mask])  # Green
-        rgb_img[mask, 2] = np.where(cov_data[mask] < 0.75, 1.0, 0.0)  # Blue
-        
-        # Convert to uint8 for PIL
+        rgb_img = np.zeros((self.height, self.width, 3), dtype=np.float64)
+
+        # Make data points with zero coverage white
+        data_points_mask = self._init_data_map > 0  # Mask for all data point locations
+        zero_coverage_mask = (cov_data <= 0.01) & data_points_mask
+        rgb_img[zero_coverage_mask] = 1.0  # Set to white
+
+        # Scale coverage from light blue to dark blue
+        coverage_mask = cov_data > 0.01
+        blue_intensity = 1.0 - (0.7 * cov_data[coverage_mask])  # Higher coverage = darker blue
+
+        rgb_img[coverage_mask, 0] = blue_intensity
+        rgb_img[coverage_mask, 1] = blue_intensity
+        rgb_img[coverage_mask, 2] = 1.0
+
         img = (rgb_img * 255).clip(0, 255).astype(np.uint8)
         img = Image.fromarray(img, "RGB")
-        
-        img.save(os.path.join(self.img_path, f"{name}.png"), "png")
+        img.save(os.path.join(self.heat_map_path, f"{name}.png"), "png")
 
     def __init_state(self):
         """Initialize state"""
         state = []
         for i in range(self.num_uavs):
-            image = np.zeros((self.width, self.height, self.channels)).astype(np.float16)
+            image = np.zeros((self.height, self.width, self.channels)).astype(np.float16)
             image[:, :, 0] = copy.copy(self._init_data_map)
             image[:, :, 1] = copy.copy(self._init_position_map[i])
             # image[:, :, 2] is already initialized to zeros
@@ -196,13 +204,21 @@ class Env:
         jain_fairness_index = square_of_sum / (sum_of_square * float(len(values)))
         return jain_fairness_index
 
-    def __get_reward(self, new_visit_count, energy_consumed, fairness):
+    def __get_reward(self, new_visit_count, energy_consumed, fairness, new_positions):
         """Calculate reward"""
         if self.step_count > 1:
             coverage_incr = np.sum((new_visit_count / self.step_count) - (self.visit_count / (self.step_count - 1)))
         else:
             coverage_incr = np.sum(new_visit_count / self.step_count)
-        return fairness * coverage_incr / (energy_consumed + self.epsilon)
+
+        # Calculate the grid entropy
+        grid = np.zeros((self.map_width, self.map_height))
+        for x, y in new_positions:
+            grid[int(x)][int(y)] += 1
+        prob = grid / np.sum(grid)
+        entropy = np.sum(prob * np.log(prob + 1e-6))
+
+        return ((fairness * coverage_incr) / (energy_consumed + self.epsilon)) - (self.entropy_factor * entropy)
 
     def step(self, action_list):
         """Process one step of the environment given agent actions"""
@@ -221,8 +237,8 @@ class Env:
                 continue
 
             action = actions[i]
-            angle = (action[0] + 1) * np.pi  # Map from [-1,1] to [0,2π]
-            distance_ratio = (action[1] + 1) / 2  # Map from [-1,1] to [0,1]
+            angle = action[0] * 2 * np.pi  # Map from [0,1] to [0,2π]
+            distance_ratio = action[1]  # Map from [0,1] to [0,1]
 
             distance = distance_ratio * self.max_dist
             delta_x = distance * np.cos(angle)
@@ -250,7 +266,7 @@ class Env:
                         new_visit_count[index] += 1
 
             # Consume energy
-            energy_consumed_uav = min(self.factor * distance + self.hover_energy * (1 - distance_ratio), self.energy[i])
+            energy_consumed_uav = min(self.energy_factor * distance + self.hover_energy * (1 - distance_ratio), self.energy[i])
             self.energy[i] -= energy_consumed_uav
             energy_consumed += energy_consumed_uav
 
@@ -275,13 +291,13 @@ class Env:
         # Calculate common reward and metrics
         done = sum(self.dn) == self.num_uavs  # Done if all UAVs are depleted
         avg_coverage_score = np.mean(new_visit_count / self.step_count)
-        fairness = self.__get_fairness(new_visit_count)
+        fairness = self.__get_fairness(new_visit_count.astype(np.float64))
 
         total_energy_consumed = np.sum(self.max_energy - self.energy)  # Cumulative energy
-        normalized_energy = total_energy_consumed / (self.num_uavs * self.step_count * self.factor * self.max_dist)
+        normalized_energy = total_energy_consumed / (self.num_uavs * self.step_count * self.energy_factor * self.max_dist)
         avg_energy_eff = (fairness * avg_coverage_score) / (normalized_energy + self.epsilon)
 
-        common_reward = self.__get_reward(new_visit_count, energy_consumed, fairness)
+        common_reward = self.__get_reward(new_visit_count, energy_consumed, fairness, new_positions)
         for i in range(self.num_uavs):
             if not self.dn[i]:
                 reward[i] += common_reward
