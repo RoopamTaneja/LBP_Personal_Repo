@@ -1,6 +1,5 @@
 import numpy as np
 import argparse
-import os
 import time
 from env import Env as MultiUAVEnv
 from maddpg.maddpg_uav import MADDPG
@@ -42,10 +41,8 @@ def test(load_dir, num_episodes, use_image_init=False, image_path=None):
     start_time = time.time()
 
     for episode in range(1, num_episodes + 1):
-        obs = env.reset()  # shape: (num_agents, obs_dim)
+        obs = env.reset(test=True, episode=episode)  # shape: (num_agents, obs_dim)
         maddpg.reset_noise()
-        if episode == 1:
-            env.save_state_image()
 
         episode_reward = 0
         score_log = {"coverage": 0, "fairness": 0, "energy_efficiency": 0, "penalty_per_uav": []}
@@ -82,7 +79,7 @@ def test(load_dir, num_episodes, use_image_init=False, image_path=None):
 
     # Call the plotting function at the end of testing
     print("📊 Generating plots...\n")
-    generate_plots(log_file=f"./test_logs/{f"log_data_{timestamp}.json"}", output_dir="./plots/", output_file="testing_plots.png")
+    generate_plots(log_file=f"./test_logs/log_data_{timestamp}.json", output_dir="./plots/", output_file="testing_plots.png")
 
 
 if __name__ == "__main__":
