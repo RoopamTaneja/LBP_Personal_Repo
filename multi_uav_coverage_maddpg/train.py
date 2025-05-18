@@ -2,7 +2,7 @@ import numpy as np
 import argparse
 import os
 import time
-from env import Env as MultiUAVEnv
+from env import Env as MultiUAVEnv, get_device
 from maddpg.maddpg_uav import MADDPG
 from utils.input import input_image
 from utils.logger import Logger
@@ -41,7 +41,8 @@ def train(num_episodes, use_image_init=False, image_path=None, resume_model=None
     obs_dim = (env.height, env.width, env.channels)
     action_dim = 2
 
-    maddpg = MADDPG(num_agents=num_agents, obs_shape=obs_dim, action_dim=action_dim)
+    device, _ = get_device()
+    maddpg = MADDPG(num_agents=num_agents, obs_shape=obs_dim, action_dim=action_dim, device=device)
     if resume_model:
         maddpg.load(resume_model)
         print(f"📂 Resumed training from: {resume_model}\n")
@@ -49,8 +50,12 @@ def train(num_episodes, use_image_init=False, image_path=None, resume_model=None
     MAX_STEPS = 300
     BATCH_SIZE = 32
     LOG_FREQ = 1  # 10
+    IMG_FREQ = 100  # save image every 100 episodes
     LEARN_FREQ = 5  # learn every 5 steps
-    SAVE_FREQ = 25  # save models every 25 episodes
+    SAVE_FREQ = num_episodes // 10
+
+    if num_episodes < 1000:
+        SAVE_FREQ = 100
 
     # Initialize for analysis/plotting
     score_log_per_episode = {"coverage": [], "fairness": [], "energy_efficiency": [], "penalty_per_uav": []}
@@ -100,12 +105,15 @@ def train(num_episodes, use_image_init=False, image_path=None, resume_model=None
         score_log_per_episode["energy_efficiency"].append(score_log["energy_efficiency"])
         score_log_per_episode["penalty_per_uav"].append(score_log["penalty_per_uav"])
 
-        # Logging
+        # Log episode metrics for plotting
         if episode % LOG_FREQ == 0:
             elapsed_time = time.time() - start_time
+            logger.log_episode_metrics(episode, episode_rewards, score_log_per_episode, LOG_FREQ, elapsed_time)
+
+        # Save images for analysis
+        if episode % IMG_FREQ == 0:
             env.save_state_image(f"state_epi_{episode}")
             env.save_heat_map_image(f"heat_map_epi_{episode}")
-            logger.log_episode_metrics(episode, episode_rewards, score_log_per_episode, LOG_FREQ, elapsed_time)
 
         # Save models periodically
         if episode % SAVE_FREQ == 0:
@@ -117,7 +125,7 @@ def train(num_episodes, use_image_init=False, image_path=None, resume_model=None
 
     # Call the plotting function at the end of training
     print("📊 Generating plots...\n")
-    generate_plots(log_file=f"./train_logs/log_data_{timestamp}.json", output_dir="./plots/", output_file="training_plots.png")
+    generate_plots(log_file=f"./train_logs/log_data_{timestamp}.json", output_dir="./train_plots/", output_file_prefix="train")
 
 
 if __name__ == "__main__":

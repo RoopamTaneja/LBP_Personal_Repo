@@ -1,13 +1,31 @@
 import torch
 import torch.nn.functional as F
+import torch.cuda as cuda
 import os
 from .agents import ActorNetwork, QuantileCriticNetwork, soft_update, GaussianNoise
 from .buffer import ReplayBuffer
 
 ALPHA = 0.5  # CVaR quantile level
 
+
 # Set device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def get_device():
+    """Check if GPU is available and set device accordingly."""
+    if cuda.is_available():
+        n_gpu = cuda.device_count()
+        print(f"\n🤖 Found {n_gpu} GPU(s) available.")
+        device = torch.device("cuda")
+        return device, n_gpu
+    elif torch.backends.mps.is_available():
+        print("\n🤖 Using MPS (Apple Silicon GPU) for training.")
+        device = torch.device("mps")
+        return device, 1
+    else:
+        print("\n⚙️  No GPU available, using CPU instead.")
+        return torch.device("cpu"), 0
+
+
+device, num_gpus = get_device()
 
 
 class MADDPG:
@@ -38,7 +56,7 @@ class MADDPG:
         self.buffer = ReplayBuffer(max_size=1000000, num_agents=num_agents, obs_dim=self.obs_dim, action_dim=action_dim)
 
         # Exploration noise
-        self.noise = [GaussianNoise(action_dim) for _ in range(num_agents)]
+        self.noise = [GaussianNoise(action_dim, device=device) for _ in range(num_agents)]
 
         # Hyperparameters
         self.gamma = gamma
@@ -73,7 +91,7 @@ class MADDPG:
             actions.append(torch.clamp(action, -1, 1))
 
         actions = torch.stack(actions)
-        return actions.detach().cpu().numpy()
+        return actions.cpu().detach().numpy()  # Move to CPU before converting to numpy
 
     def update(self, batch_size):
         if len(self.buffer) < batch_size:
@@ -135,7 +153,6 @@ class MADDPG:
                 target_output = self.target_critics[i](next_obs_flat, next_actions_flat)
                 target_sorted, _ = torch.sort(target_output, dim=1)
                 cvar_target_q = torch.mean(target_sorted[:, : int(ALPHA * critic_output.size(1))], dim=1, keepdim=True)
-                # cvar_target = rew_batch + (1 - done_batch) * self.gamma * cvar_target  # [batch_size, 1]
                 cvar_target = rew_tensor[:, i].unsqueeze(1) + self.gamma * cvar_target_q * (1 - done_tensor[:, i].unsqueeze(1))
 
             # Critic loss

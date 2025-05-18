@@ -2,7 +2,7 @@ import numpy as np
 import argparse
 import time
 from env import Env as MultiUAVEnv
-from maddpg.maddpg_uav import MADDPG
+from maddpg.maddpg_uav import MADDPG, get_device
 from utils.input import input_image
 from utils.logger import Logger
 from utils.plot_logs import generate_plots
@@ -28,11 +28,13 @@ def test(load_dir, num_episodes, use_image_init=False, image_path=None):
     obs_dim = (env.height, env.width, env.channels)
     action_dim = 2
 
-    maddpg = MADDPG(num_agents=num_agents, obs_shape=obs_dim, action_dim=action_dim)
+    device, num_gpus = get_device()
+    maddpg = MADDPG(num_agents=num_agents, obs_shape=obs_dim, action_dim=action_dim, device=device)
     maddpg.load(load_dir)
 
     MAX_STEPS = 300
-    LOG_FREQ = 1
+    LOG_FREQ = 1  # for logging details, used for plotting graphs
+    IMG_FREQ = 10  # save image every 10 episodes
 
     # Initialize for analysis/plotting
     score_log_per_episode = {"coverage": [], "fairness": [], "energy_efficiency": [], "penalty_per_uav": []}
@@ -69,17 +71,20 @@ def test(load_dir, num_episodes, use_image_init=False, image_path=None):
         score_log_per_episode["energy_efficiency"].append(score_log["energy_efficiency"])
         score_log_per_episode["penalty_per_uav"].append(score_log["penalty_per_uav"])
 
+        # Log episode metrics for plotting
         if episode % LOG_FREQ == 0:
             elapsed_time = time.time() - start_time
+            logger.log_episode_metrics(episode, episode_rewards, score_log_per_episode, LOG_FREQ, elapsed_time)
+        # Save images for analysis
+        if episode % IMG_FREQ == 0:
             env.save_state_image(f"state_epi_{episode}")
             env.save_heat_map_image(f"heat_map_epi_{episode}")
-            logger.log_episode_metrics(episode, episode_rewards, score_log_per_episode, LOG_FREQ, elapsed_time)
 
     print("✅ Testing Completed!\n")
 
     # Call the plotting function at the end of testing
     print("📊 Generating plots...\n")
-    generate_plots(log_file=f"./test_logs/log_data_{timestamp}.json", output_dir="./plots/", output_file="testing_plots.png")
+    generate_plots(log_file=f"./test_logs/log_data_{timestamp}.json", output_dir="./test_plots/", output_file_prefix="test")
 
 
 if __name__ == "__main__":
