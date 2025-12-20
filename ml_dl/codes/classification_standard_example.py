@@ -11,6 +11,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from xgboost import XGBClassifier
 
 data = load_breast_cancer()
 X = data.data
@@ -25,6 +26,7 @@ models = {
     "SVM (RBF)": Pipeline([("scaler", StandardScaler()), ("clf", SVC(C=1.0, kernel="rbf", probability=True, random_state=42))]),
     "Random Forest": Pipeline([("clf", RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42))]),
     "Gradient Boosting": Pipeline([("clf", GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, random_state=42))]),
+    "XGBoost": Pipeline([("clf", XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=5, eval_metric="logloss", random_state=42))]),
 }
 
 scoring = {"accuracy": "accuracy", "recall": "recall"}
