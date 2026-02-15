@@ -7,7 +7,7 @@ plt.figure(figsize=(15, 5))
 
 print("--- PART 1: STANDARD LINEAR REGRESSION ---")
 
-# 1. Data Generation (Eq 9.4: y = x^T*theta + epsilon)
+# 1. Data Generation (y = x^T*theta + epsilon)
 N = 100
 true_theta_1 = 2.5  # Slope
 true_theta_0 = 1.0  # Intercept
@@ -63,7 +63,7 @@ plt.plot(x_line, y_analytical, "r--", label="Analytical (Normal Eq)")
 plt.plot(x_line, y_gd, "b:", linewidth=3, label="Gradient Descent")
 plt.xlabel("x")
 plt.ylabel("y")
-plt.title("Linear Regression (Eq 9.4)")
+plt.title("Linear Regression")
 plt.legend()
 
 # --- VISUALIZATION 2: Convergence ---
@@ -124,7 +124,7 @@ with torch.no_grad():
 
 plt.plot(x_test, y_test, color="green", label=f"Poly Fit (Deg {degree})")
 plt.xlabel("x")
-plt.title("Feature Spaces (Eq 9.13)")
+plt.title("Feature Spaces)")
 plt.legend()
 
 plt.tight_layout()
